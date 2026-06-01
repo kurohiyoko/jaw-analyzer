@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>顎運動セルフチェック｜波鍼灸院</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --surface: #111827;
+    --surface2: #1e2a3a;
+    --border: rgba(99,179,237,0.15);
+    --accent: #63b3ed;
+    --accent2: #68d391;
+    --warn: #f6ad55;
+    --danger: #fc8181;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --font: 'Noto Sans JP', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo { font-size: 13px; color: var(--text2); letter-spacing: 0.05em; }
+  .logo strong { color: var(--accent); font-size: 15px; }
+  .disclaimer-badge {
+    font-size: 10px;
+    background: rgba(246,173,85,0.12);
+    color: var(--warn);
+    border: 1px solid rgba(246,173,85,0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    overflow: hidden;
+  }
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .panel { display: none; }
+    .panel.active-mobile { display: block; }
+  }
+
+  /* カメラエリア */
+  .camera-area {
+    position: relative;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: none;
+  }
+  #canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .start-screen {
+    text-align: center;
+    padding: 40px;
+  }
+  .start-screen h2 {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+  .start-screen p {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.8;
+    margin-bottom: 24px;
+    max-width: 380px;
+  }
+  .btn-start {
+    background: var(--accent);
+    color: #0a0e14;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-start:hover { opacity: 0.85; }
+
+  /* カメラ上部のモード切替 */
+  .mode-bar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    background: rgba(10,14,20,0.85);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    display: none;
+  }
+  .mode-btn {
+    padding: 7px 18px;
+    font-size: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .mode-btn.active {
+    background: var(--accent);
+    color: #0a0e14;
+    font-weight: 600;
+  }
+
+  /* カメラ下部コントロール */
+  .camera-controls {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    display: none;
+  }
+  .ctrl-btn {
+    background: rgba(10,14,20,0.85);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+  }
+  .ctrl-btn:hover { background: rgba(99,179,237,0.15); }
+  .ctrl-btn.rec { border-color: var(--danger); color: var(--danger); }
+  .ctrl-btn.rec.recording {
+    background: rgba(252,129,129,0.15);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* サイドパネル */
+  .panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .panel-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .panel-section { display: none; }
+  .panel-section.active { display: block; }
+
+  /* メトリクスカード */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .metric {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .metric-label {
+    font-size: 10px;
+    color: var(--text2);
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+  }
+  .metric-value {
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .metric-value.good { color: var(--accent2); }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.danger { color: var(--danger); }
+  .metric-unit { font-size: 11px; color: var(--text2); margin-left: 2px; }
+
+  /* グラフ */
+  .graph-wrap {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  .graph-title {
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  canvas.mini-graph {
+    width: 100%;
+    height: 80px;
+    display: block;
+  }
+
+  /* 筋肉モード */
+  .muscle-list { list-style: none; }
+  .muscle-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .muscle-name { color: var(--text2); }
+  .muscle-bar-wrap {
+    flex: 1;
+    margin: 0 10px;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .muscle-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.15s;
+  }
+  .muscle-val { font-size: 11px; min-width: 36px; text-align: right; }
+
+  /* 軌跡セクション */
+  .traj-canvas-wrap {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  canvas#trajCanvas {
+    width: 100%;
+    max-height: 200px;
+    border-radius: 4px;
+  }
+  .traj-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .traj-btn {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .traj-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* リプレイ */
+  .replay-section {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  .replay-title {
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+  .replay-canvas-wrap { position: relative; }
+  canvas#replayCanvas {
+    width: 100%;
+    border-radius: 4px;
+    background: #000;
+  }
+  .replay-controls {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .replay-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .replay-btn:hover { color: var(--accent); }
+  .speed-label { font-size: 11px; color: var(--text2); margin-left: auto; }
+
+  /* ステータス */
+  .status-bar {
+    font-size: 11px;
+    color: var(--text2);
+    text-align: center;
+    padding: 6px;
+    background: var(--surface2);
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  .status-bar.ok { color: var(--accent2); }
+  .status-bar.warn { color: var(--warn); }
+
+  /* 免責事項 */
+  .disclaimer {
+    font-size: 10px;
+    color: var(--text2);
+    line-height: 1.6;
+    background: rgba(246,173,85,0.06);
+    border: 1px solid rgba(246,173,85,0.2);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  /* 待機時 */
+  .waiting {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text2);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .waiting-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* スコアリング */
+  .score-display {
+    text-align: center;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .score-num {
+    font-size: 40px;
+    font-weight: 300;
+    letter-spacing: -2px;
+  }
+  .score-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* ローディング */
+  #loading {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--text2); }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">MediaPipeを読み込み中...</div>
+</div>
+
+<header>
+  <div class="logo"><strong>顎運動セルフチェック</strong> | 波鍼灸院</div>
+  <div class="disclaimer-badge">医療診断ではありません</div>
+</header>
+
+<div class="main">
+  <!-- カメラエリア -->
+  <div class="camera-area" id="cameraArea">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="start-screen" id="startScreen">
+      <h2>顎の動きを解析します</h2>
+      <p>カメラを使って顎の開閉軌跡・左右バランス・筋肉の使い方を<br>リアルタイムで可視化します。<br>データはすべてお使いの端末内で処理されます。</p>
+      <button class="btn-start" id="btnStart">カメラを起動する</button>
+    </div>
+
+    <div class="mode-bar" id="modeBar">
+      <button class="mode-btn active" data-mode="skeleton">骨格軌跡</button>
+      <button class="mode-btn" data-mode="muscle">筋肉解析</button>
+      <button class="mode-btn" data-mode="combined">複合表示</button>
+    </div>
+
+    <div class="camera-controls" id="camControls">
+      <button class="ctrl-btn" id="btnClear">軌跡クリア</button>
+      <button class="ctrl-btn rec" id="btnRec">● 録画開始</button>
+      <button class="ctrl-btn" id="btnReplay" style="display:none">▶ スロー再生</button>
+    </div>
+  </div>
+
+  <!-- サイドパネル -->
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="realtime">リアルタイム</button>
+      <button class="panel-tab" data-tab="trajectory">軌跡分析</button>
+      <button class="panel-tab" data-tab="replay">スロー再生</button>
+    </div>
+
+    <div class="panel-content">
+      <!-- リアルタイムタブ -->
+      <div class="panel-section active" id="tab-realtime">
+        <div id="waitingMsg" class="waiting">
+          <div class="waiting-icon">○</div>
+          カメラを起動すると<br>リアルタイム計測が始まります
+        </div>
+
+        <div id="metricsArea" style="display:none">
+          <div class="status-bar ok" id="statusBar">計測中</div>
+
+          <div class="score-display">
+            <div class="score-num" id="scoreNum">—</div>
+            <div class="score-label">左右均衡スコア（100が完全均衡）</div>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">口の開口量</div>
+              <div class="metric-value" id="openRatio">0<span class="metric-unit">%</span></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">顎の横ズレ</div>
+              <div class="metric-value" id="jawShift">0<span class="metric-unit">mm</span></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">左右口角差</div>
+              <div class="metric-value" id="cornerDiff">0<span class="metric-unit">px</span></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">目の傾き</div>
+              <div class="metric-value" id="eyeTilt">0<span class="metric-unit">°</span></div>
+            </div>
+          </div>
+
+          <div class="graph-wrap">
+            <div class="graph-title">顎の横ブレ履歴（赤線=中心）</div>
+            <canvas class="mini-graph" id="shiftGraph"></canvas>
+          </div>
+
+          <div id="muscleSection" style="display:none">
+            <div class="graph-wrap" style="margin-bottom:8px">
+              <div class="graph-title">筋肉活動推定（相対値）</div>
+              <ul class="muscle-list" id="muscleList">
+                <li class="muscle-item">
+                  <span class="muscle-name">右口輪筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-r-orbicularis" style="width:0%;background:#63b3ed"></div></div>
+                  <span class="muscle-val" id="mv-r-orbicularis">0%</span>
+                </li>
+                <li class="muscle-item">
+                  <span class="muscle-name">左口輪筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-l-orbicularis" style="width:0%;background:#63b3ed"></div></div>
+                  <span class="muscle-val" id="mv-l-orbicularis">0%</span>
+                </li>
+                <li class="muscle-item">
+                  <span class="muscle-name">右頬筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-r-buccinator" style="width:0%;background:#68d391"></div></div>
+                  <span class="muscle-val" id="mv-r-buccinator">0%</span>
+                </li>
+                <li class="muscle-item">
+                  <span class="muscle-name">左頬筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-l-buccinator" style="width:0%;background:#68d391"></div></div>
+                  <span class="muscle-val" id="mv-l-buccinator">0%</span>
+                </li>
+                <li class="muscle-item">
+                  <span class="muscle-name">右側頭筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-r-temporal" style="width:0%;background:#f6ad55"></div></div>
+                  <span class="muscle-val" id="mv-r-temporal">0%</span>
+                </li>
+                <li class="muscle-item">
+                  <span class="muscle-name">左側頭筋</span>
+                  <div class="muscle-bar-wrap"><div class="muscle-bar" id="mb-l-temporal" style="width:0%;background:#f6ad55"></div></div>
+                  <span class="muscle-val" id="mv-l-temporal">0%</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="disclaimer">
+            このアプリは皮膚・表情の動きを解析するセルフチェックツールです。医療診断・治療の代替にはなりません。気になる症状は専門医にご相談ください。顔データはサーバーに送信されません。
+          </div>
+        </div>
+      </div>
+
+      <!-- 軌跡タブ -->
+      <div class="panel-section" id="tab-trajectory">
+        <div class="traj-canvas-wrap">
+          <div class="graph-title">開口時の顎先軌跡</div>
+          <canvas id="trajCanvas" width="280" height="200"></canvas>
+          <div class="traj-controls">
+            <button class="traj-btn" id="btnClearTraj">クリア</button>
+            <button class="traj-btn" id="btnExportTraj">画像保存</button>
+          </div>
+        </div>
+        <div class="graph-wrap">
+          <div class="graph-title">カクつき検知（加速度変化）</div>
+          <canvas class="mini-graph" id="jerkGraph"></canvas>
+        </div>
+        <div class="status-bar" id="trajStatus">計測を開始してください</div>
+      </div>
+
+      <!-- スロー再生タブ -->
+      <div class="panel-section" id="tab-replay">
+        <div class="replay-section">
+          <div class="replay-title">録画データのスロー再生</div>
+          <div class="replay-canvas-wrap">
+            <canvas id="replayCanvas" width="280" height="210"></canvas>
+          </div>
+          <div class="replay-controls">
+            <button class="replay-btn" id="btnPlay">再生</button>
+            <button class="replay-btn" id="btnStop">停止</button>
+            <span class="speed-label" id="speedLabel">速度: 0.25×</span>
+            <input type="range" id="speedSlider" min="1" max="4" value="1" step="1" style="width:70px">
+          </div>
+        </div>
+        <div class="status-bar" id="replayStatus">録画後に再生できます</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MediaPipe CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Landmark indices
+const LM = {
+  JAW_TIP: 152,
+  NOSE_ROOT: 168,
+  LIP_TOP: 13,
+  LIP_BOT: 14,
+  MOUTH_L: 61,
+  MOUTH_R: 291,
+  EYE_L: 33,
+  EYE_R: 263,
+  FOREHEAD: 10,
+  CHIN: 152,
+  CHEEK_L: 234,
+  CHEEK_R: 454,
+  EYE_L_OUT: 33,
+  EYE_R_OUT: 263,
+};
+
+let mode = 'skeleton';
+let running = false;
+let jawTrail = [];
+let shiftHistory = [];
+let jerkHistory = [];
+let lastJawX = null;
+let recording = false;
+let recordedFrames = [];
+let maxTrailLen = 300;
+
+// グラフ描画
+const shiftGraph = document.getElementById('shiftGraph');
+const sgCtx = shiftGraph.getContext('2d');
+const jerkGraph = document.getElementById('jerkGraph');
+const jgCtx = jerkGraph.getContext('2d');
+const trajCanvas = document.getElementById('trajCanvas');
+const tjCtx = trajCanvas.getContext('2d');
+const replayCanvas = document.getElementById('replayCanvas');
+const rpCtx = replayCanvas.getContext('2d');
+
+let replayIdx = 0;
+let replayTimer = null;
+let speedMult = [0.25, 0.5, 1.0, 2.0];
+
+function resizeCanvas() {
+  const area = document.getElementById('cameraArea');
+  canvas.width = area.clientWidth;
+  canvas.height = area.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// MediaPipe初期化
+const faceMesh = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}` });
+faceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.5,
+});
+
+faceMesh.onResults(onResults);
+
+function onResults(results) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+    document.getElementById('statusBar').textContent = '顔が検出されていません';
+    document.getElementById('statusBar').className = 'status-bar warn';
+    return;
+  }
+
+  document.getElementById('statusBar').textContent = '計測中';
+  document.getElementById('statusBar').className = 'status-bar ok';
+
+  const lm = results.multiFaceLandmarks[0];
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // ミラー補正（videoがscaleX(-1)なので）
+  function px(l) { return { x: (1 - l.x) * W, y: l.y * H, z: l.z }; }
+
+  const jawTip = px(lm[LM.JAW_TIP]);
+  const noseRoot = px(lm[LM.NOSE_ROOT]);
+  const lipTop = px(lm[LM.LIP_TOP]);
+  const lipBot = px(lm[LM.LIP_BOT]);
+  const mouthL = px(lm[LM.MOUTH_L]);
+  const mouthR = px(lm[LM.MOUTH_R]);
+  const eyeL = px(lm[LM.EYE_L]);
+  const eyeR = px(lm[LM.EYE_R]);
+  const forehead = px(lm[LM.FOREHEAD]);
+
+  // 顔の基準スケール（両目間距離）
+  const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
+  const faceH = Math.hypot(jawTip.x - forehead.x, jawTip.y - forehead.y);
+
+  // 開口量
+  const openDist = Math.hypot(lipBot.x - lipTop.x, lipBot.y - lipTop.y);
+  const openRatio = Math.round((openDist / faceH) * 200);
+
+  // 顎横ズレ（鼻根からの相対）
+  const jawShiftRaw = jawTip.x - noseRoot.x;
+  const jawShiftMm = (jawShiftRaw / eyeDist * 15).toFixed(1);
+
+  // 口角高さ差
+  const cornerDiff = Math.abs(mouthL.y - mouthR.y);
+
+  // 目の傾き
+  const eyeAngle = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180 / Math.PI;
+
+  // 均衡スコア（0〜100）
+  const shiftScore = Math.max(0, 100 - Math.abs(jawShiftRaw / eyeDist * 200));
+  const cornerScore = Math.max(0, 100 - cornerDiff / faceH * 500);
+  const eyeScore = Math.max(0, 100 - Math.abs(eyeAngle) * 8);
+  const balanceScore = Math.round((shiftScore + cornerScore + eyeScore) / 3);
+
+  // 軌跡記録
+  if (mode === 'skeleton' || mode === 'combined') {
+    if (openRatio > 5) {
+      jawTrail.push({ x: jawTip.x, y: jawTip.y });
+      if (jawTrail.length > maxTrailLen) jawTrail.shift();
+    }
+  }
+
+  // 履歴
+  shiftHistory.push(parseFloat(jawShiftMm));
+  if (shiftHistory.length > 120) shiftHistory.shift();
+
+  const jerk = lastJawX !== null ? Math.abs(jawTip.x - lastJawX) : 0;
+  lastJawX = jawTip.x;
+  jerkHistory.push(jerk);
+  if (jerkHistory.length > 120) jerkHistory.shift();
+
+  // 録画
+  if (recording) {
+    recordedFrames.push({
+      jawTip: {...jawTip},
+      noseRoot: {...noseRoot},
+      mouthL: {...mouthL},
+      mouthR: {...mouthR},
+      eyeL: {...eyeL},
+      eyeR: {...eyeR},
+      openRatio,
+      jawShiftMm: parseFloat(jawShiftMm),
+      balanceScore,
+      lm: lm.map(p => px(p)),
+    });
+    if (recordedFrames.length > 300) {
+      stopRecording();
+    }
+  }
+
+  // ===== 描画 =====
+  ctx.save();
+
+  if (mode === 'skeleton' || mode === 'combined') {
+    // 軌跡
+    if (jawTrail.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(jawTrail[0].x, jawTrail[0].y);
+      for (let i = 1; i < jawTrail.length; i++) {
+        const alpha = i / jawTrail.length;
+        ctx.strokeStyle = `rgba(99,179,237,${alpha * 0.8})`;
+        ctx.lineWidth = 2;
+        ctx.lineTo(jawTrail[i].x, jawTrail[i].y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(jawTrail[i].x, jawTrail[i].y);
+      }
+    }
+
+    // 中心軸（鼻根〜顎先）
+    ctx.strokeStyle = 'rgba(246,173,85,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(noseRoot.x, noseRoot.y);
+    ctx.lineTo(jawTip.x, jawTip.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 顎先ドット
+    ctx.fillStyle = '#63b3ed';
+    ctx.beginPath();
+    ctx.arc(jawTip.x, jawTip.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 口角ライン
+    ctx.strokeStyle = 'rgba(104,211,145,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(mouthL.x, mouthL.y);
+    ctx.lineTo(mouthR.x, mouthR.y);
+    ctx.stroke();
+
+    // 目のライン
+    ctx.strokeStyle = 'rgba(252,129,129,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(eyeL.x, eyeL.y);
+    ctx.lineTo(eyeR.x, eyeR.y);
+    ctx.stroke();
+  }
+
+  if (mode === 'muscle' || mode === 'combined') {
+    // 筋肉ヒートマップ（口周り）
+    const rightTension = cornerDiff / faceH * 10 + Math.abs(jawShiftRaw / eyeDist) * 5;
+    const leftTension = cornerDiff / faceH * 10;
+
+    // 右側
+    const gr = ctx.createRadialGradient(mouthR.x, mouthR.y, 5, mouthR.x, mouthR.y, eyeDist * 0.4);
+    gr.addColorStop(0, `rgba(252,129,129,${Math.min(0.5, rightTension * 0.15)})`);
+    gr.addColorStop(1, 'transparent');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, W, H);
+
+    // 左側
+    const gl = ctx.createRadialGradient(mouthL.x, mouthL.y, 5, mouthL.x, mouthL.y, eyeDist * 0.4);
+    gl.addColorStop(0, `rgba(99,179,237,${Math.min(0.5, leftTension * 0.15)})`);
+    gl.addColorStop(1, 'transparent');
+    ctx.fillStyle = gl;
+    ctx.fillRect(0, 0, W, H);
+
+    // チークの表示
+    [mouthL, mouthR].forEach((pt, i) => {
+      ctx.fillStyle = i === 0 ? 'rgba(99,179,237,0.7)' : 'rgba(252,129,129,0.7)';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // スコア表示（カメラ上）
+  ctx.fillStyle = 'rgba(10,14,20,0.7)';
+  ctx.fillRect(10, H - 50, 120, 40);
+  ctx.fillStyle = balanceScore >= 80 ? '#68d391' : balanceScore >= 60 ? '#f6ad55' : '#fc8181';
+  ctx.font = '500 22px Noto Sans JP';
+  ctx.fillText(balanceScore, 20, H - 24);
+  ctx.fillStyle = 'rgba(148,163,184,0.8)';
+  ctx.font = '10px Noto Sans JP';
+  ctx.fillText('均衡スコア', 50, H - 24);
+
+  ctx.restore();
+
+  // UI更新
+  const scoreEl = document.getElementById('scoreNum');
+  scoreEl.textContent = balanceScore;
+  scoreEl.className = 'score-num ' + (balanceScore >= 80 ? 'good' : balanceScore >= 60 ? 'warn' : 'danger');
+  document.getElementById('openRatio').innerHTML = openRatio + '<span class="metric-unit">%</span>';
+  document.getElementById('jawShift').innerHTML = Math.abs(jawShiftMm) + '<span class="metric-unit">mm</span>';
+  const cDiff = Math.round(cornerDiff);
+  document.getElementById('cornerDiff').innerHTML = cDiff + '<span class="metric-unit">px</span>';
+  document.getElementById('eyeTilt').innerHTML = Math.abs(eyeAngle).toFixed(1) + '<span class="metric-unit">°</span>';
+
+  // 筋肉バー更新
+  if (mode === 'muscle' || mode === 'combined') {
+    const rOrb = Math.min(100, Math.round(openRatio * (1 + Math.abs(jawShiftRaw / eyeDist))));
+    const lOrb = Math.min(100, Math.round(openRatio));
+    const rBuc = Math.min(100, Math.round(cornerDiff / faceH * 800));
+    const lBuc = Math.min(100, Math.round(cornerDiff / faceH * 600));
+    const rTem = Math.min(100, Math.round(Math.abs(eyeAngle) * 8));
+    const lTem = Math.min(100, Math.round(Math.abs(eyeAngle) * 6));
+
+    updateMuscle('r-orbicularis', rOrb);
+    updateMuscle('l-orbicularis', lOrb);
+    updateMuscle('r-buccinator', rBuc);
+    updateMuscle('l-buccinator', lBuc);
+    updateMuscle('r-temporal', rTem);
+    updateMuscle('l-temporal', lTem);
+  }
+
+  // グラフ更新
+  drawShiftGraph();
+  drawJerkGraph();
+  drawTrajCanvas();
+}
+
+function updateMuscle(id, val) {
+  const bar = document.getElementById('mb-' + id);
+  const valEl = document.getElementById('mv-' + id);
+  if (bar) bar.style.width = val + '%';
+  if (valEl) valEl.textContent = val + '%';
+}
+
+function drawShiftGraph() {
+  const w = shiftGraph.width = shiftGraph.offsetWidth;
+  const h = shiftGraph.height = 80;
+  sgCtx.clearRect(0, 0, w, h);
+  sgCtx.fillStyle = 'transparent';
+
+  if (shiftHistory.length < 2) return;
+  const max = 10;
+
+  // 中心線
+  sgCtx.strokeStyle = 'rgba(252,129,129,0.4)';
+  sgCtx.lineWidth = 1;
+  sgCtx.setLineDash([3, 3]);
+  sgCtx.beginPath();
+  sgCtx.moveTo(0, h / 2);
+  sgCtx.lineTo(w, h / 2);
+  sgCtx.stroke();
+  sgCtx.setLineDash([]);
+
+  // データ線
+  sgCtx.strokeStyle = '#63b3ed';
+  sgCtx.lineWidth = 1.5;
+  sgCtx.beginPath();
+  shiftHistory.forEach((v, i) => {
+    const x = (i / (shiftHistory.length - 1)) * w;
+    const y = h / 2 - (v / max) * (h / 2 - 5);
+    i === 0 ? sgCtx.moveTo(x, y) : sgCtx.lineTo(x, y);
+  });
+  sgCtx.stroke();
+}
+
+function drawJerkGraph() {
+  const w = jerkGraph.width = jerkGraph.offsetWidth;
+  const h = jerkGraph.height = 80;
+  jgCtx.clearRect(0, 0, w, h);
+
+  if (jerkHistory.length < 2) return;
+  const max = Math.max(10, ...jerkHistory);
+  const threshold = max * 0.6;
+
+  jerkHistory.forEach((v, i) => {
+    const x = (i / jerkHistory.length) * w;
+    const barH = (v / max) * h;
+    jgCtx.fillStyle = v > threshold ? 'rgba(252,129,129,0.7)' : 'rgba(99,179,237,0.4)';
+    jgCtx.fillRect(x, h - barH, w / jerkHistory.length - 0.5, barH);
+  });
+
+  // カクつきカウント
+  const jerkCount = jerkHistory.filter(v => v > threshold).length;
+  document.getElementById('trajStatus').textContent =
+    `カクつき検知: ${jerkCount}回 / 直近${jerkHistory.length}フレーム`;
+}
+
+function drawTrajCanvas() {
+  const w = trajCanvas.width = trajCanvas.offsetWidth || 280;
+  const h = 200;
+  tjCtx.clearRect(0, 0, w, h);
+
+  tjCtx.fillStyle = '#111827';
+  tjCtx.fillRect(0, 0, w, h);
+
+  // 中心軸
+  tjCtx.strokeStyle = 'rgba(246,173,85,0.4)';
+  tjCtx.lineWidth = 1;
+  tjCtx.setLineDash([4, 4]);
+  tjCtx.beginPath();
+  tjCtx.moveTo(w / 2, 0);
+  tjCtx.lineTo(w / 2, h);
+  tjCtx.stroke();
+  tjCtx.setLineDash([]);
+
+  if (jawTrail.length < 2) return;
+
+  // 正規化（カメラ座標→トレジェクトリキャンバス）
+  const xs = jawTrail.map(p => p.x);
+  const ys = jawTrail.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = Math.max(maxX - minX, 10);
+  const rangeY = Math.max(maxY - minY, 10);
+
+  function normX(x) { return (x - minX) / rangeX * (w - 40) + 20; }
+  function normY(y) { return (y - minY) / rangeY * (h - 40) + 20; }
+
+  tjCtx.lineWidth = 2;
+  jawTrail.forEach((pt, i) => {
+    const alpha = i / jawTrail.length;
+    const x = normX(pt.x);
+    const y = normY(pt.y);
+    if (i === 0) {
+      tjCtx.beginPath();
+      tjCtx.moveTo(x, y);
+    } else {
+      tjCtx.strokeStyle = `rgba(99,179,237,${alpha})`;
+      tjCtx.lineTo(x, y);
+      tjCtx.stroke();
+      tjCtx.beginPath();
+      tjCtx.moveTo(x, y);
+    }
+  });
+
+  // 最終点
+  if (jawTrail.length > 0) {
+    const last = jawTrail[jawTrail.length - 1];
+    tjCtx.fillStyle = '#63b3ed';
+    tjCtx.beginPath();
+    tjCtx.arc(normX(last.x), normY(last.y), 4, 0, Math.PI * 2);
+    tjCtx.fill();
+  }
+}
+
+// 録画
+function startRecording() {
+  recordedFrames = [];
+  recording = true;
+  const btn = document.getElementById('btnRec');
+  btn.textContent = '■ 録画停止';
+  btn.classList.add('recording');
+  document.getElementById('replayStatus').textContent = '録画中...';
+}
+
+function stopRecording() {
+  recording = false;
+  const btn = document.getElementById('btnRec');
+  btn.textContent = '● 録画開始';
+  btn.classList.remove('recording');
+  if (recordedFrames.length > 0) {
+    document.getElementById('btnReplay').style.display = '';
+    document.getElementById('replayStatus').textContent = `録画完了: ${recordedFrames.length}フレーム`;
+  }
+}
+
+// スロー再生
+function playReplay() {
+  if (recordedFrames.length === 0) return;
+  if (replayTimer) clearInterval(replayTimer);
+  replayIdx = 0;
+  const speedIdx = parseInt(document.getElementById('speedSlider').value) - 1;
+  const mult = speedMult[speedIdx];
+  const interval = Math.round(33 / mult);
+
+  replayTimer = setInterval(() => {
+    if (replayIdx >= recordedFrames.length) {
+      clearInterval(replayTimer);
+      return;
+    }
+    drawReplayFrame(replayIdx);
+    replayIdx++;
+  }, interval);
+}
+
+function drawReplayFrame(idx) {
+  const frame = recordedFrames[idx];
+  const w = replayCanvas.width;
+  const h = replayCanvas.height;
+
+  rpCtx.clearRect(0, 0, w, h);
+  rpCtx.fillStyle = '#0a0e14';
+  rpCtx.fillRect(0, 0, w, h);
+
+  // スケール（カメラ座標→リプレイキャンバス）
+  const scaleX = w / canvas.width;
+  const scaleY = h / canvas.height;
+
+  // 過去軌跡
+  for (let i = Math.max(0, idx - 50); i <= idx; i++) {
+    const f = recordedFrames[i];
+    const alpha = (i - Math.max(0, idx - 50)) / 50;
+    rpCtx.fillStyle = `rgba(99,179,237,${alpha * 0.8})`;
+    rpCtx.beginPath();
+    rpCtx.arc(f.jawTip.x * scaleX, f.jawTip.y * scaleY, 3, 0, Math.PI * 2);
+    rpCtx.fill();
+  }
+
+  // 現在フレームのランドマーク
+  const f = frame;
+  [f.jawTip, f.mouthL, f.mouthR, f.eyeL, f.eyeR].forEach((pt, i) => {
+    const colors = ['#63b3ed', '#68d391', '#68d391', '#fc8181', '#fc8181'];
+    rpCtx.fillStyle = colors[i];
+    rpCtx.beginPath();
+    rpCtx.arc(pt.x * scaleX, pt.y * scaleY, 4, 0, Math.PI * 2);
+    rpCtx.fill();
+  });
+
+  // スコア表示
+  rpCtx.fillStyle = 'rgba(10,14,20,0.8)';
+  rpCtx.fillRect(4, h - 36, 100, 32);
+  rpCtx.fillStyle = f.balanceScore >= 80 ? '#68d391' : f.balanceScore >= 60 ? '#f6ad55' : '#fc8181';
+  rpCtx.font = '500 18px sans-serif';
+  rpCtx.fillText(f.balanceScore, 10, h - 16);
+  rpCtx.fillStyle = 'rgba(148,163,184,0.8)';
+  rpCtx.font = '9px sans-serif';
+  rpCtx.fillText(`${idx + 1}/${recordedFrames.length}`, 38, h - 16);
+
+  document.getElementById('replayStatus').textContent =
+    `フレーム ${idx + 1} / ${recordedFrames.length} | スコア: ${f.balanceScore}`;
+}
+
+// カメラ起動
+let mpCamera = null;
+document.getElementById('btnStart').addEventListener('click', async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('modeBar').style.display = 'flex';
+    document.getElementById('camControls').style.display = 'flex';
+    document.getElementById('waitingMsg').style.display = 'none';
+    document.getElementById('metricsArea').style.display = 'block';
+
+    mpCamera = new Camera(video, {
+      onFrame: async () => {
+        await faceMesh.send({ image: video });
+      },
+      width: 640,
+      height: 480,
+    });
+    mpCamera.start();
+    running = true;
+  } catch (e) {
+    alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+  }
+});
+
+// モード切替
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    jawTrail = [];
+    const muscleSection = document.getElementById('muscleSection');
+    muscleSection.style.display = (mode === 'muscle' || mode === 'combined') ? 'block' : 'none';
+  });
+});
+
+// パネルタブ
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ボタン
+document.getElementById('btnClear').addEventListener('click', () => { jawTrail = []; });
+document.getElementById('btnClearTraj').addEventListener('click', () => { jawTrail = []; });
+document.getElementById('btnExportTraj').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'jaw-trajectory.png';
+  link.href = trajCanvas.toDataURL();
+  link.click();
+});
+document.getElementById('btnRec').addEventListener('click', () => {
+  recording ? stopRecording() : startRecording();
+});
+document.getElementById('btnReplay').addEventListener('click', () => {
+  document.querySelector('.panel-tab[data-tab="replay"]').click();
+  playReplay();
+});
+document.getElementById('btnPlay').addEventListener('click', playReplay);
+document.getElementById('btnStop').addEventListener('click', () => {
+  if (replayTimer) clearInterval(replayTimer);
+});
+document.getElementById('speedSlider').addEventListener('input', (e) => {
+  const labels = ['0.25×', '0.5×', '1.0×', '2.0×'];
+  document.getElementById('speedLabel').textContent = '速度: ' + labels[e.target.value - 1];
+});
+
+// ローディング完了
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('loading').style.display = 'none';
+  }, 1500);
+});
+</script>
+</body>
+</html>
