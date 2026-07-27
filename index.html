@@ -619,7 +619,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         letter-spacing:0.05em;
         border:1px solid rgba(99,179,237,0.3);
         pointer-events:none;
-      ">← 左</div>
+      ">→ 右手側</div>
       <div id="labelRight" style="
         position:absolute; right:10px; top:50%;
         transform:translateY(-50%);
@@ -630,7 +630,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         letter-spacing:0.05em;
         border:1px solid rgba(99,179,237,0.3);
         pointer-events:none;
-      ">右 →</div>
+      ">左手側 ←</div>
 
       <!-- 環境警告 -->
       <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
@@ -1163,9 +1163,9 @@ function onResults(results) {
       ctx.fill();
     }
     // 中心軸
-    ctx.strokeStyle = 'rgba(246,173,85,0.4)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(246,173,85,0.8)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6,5]);
     ctx.beginPath();
     ctx.moveTo(nose.x, nose.y);
     ctx.lineTo(jaw.x, jaw.y);
@@ -1179,8 +1179,8 @@ function onResults(results) {
     ctx.fill();
 
     // 口角
-    ctx.strokeStyle = 'rgba(104,211,145,0.7)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(104,211,145,0.85)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(mL.x, mL.y);
     ctx.lineTo(mR.x, mR.y);
@@ -1204,9 +1204,9 @@ function onResults(results) {
 
     // 小鼻
     [nostL, nostR].forEach(pt => {
-      ctx.fillStyle = 'rgba(246,173,85,0.8)';
+      ctx.fillStyle = 'rgba(246,173,85,0.95)';
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2);
+      ctx.arc(pt.x, pt.y, 5, 0, Math.PI*2);
       ctx.fill();
     });
   }
@@ -1750,28 +1750,28 @@ document.getElementById('btnVowelCheck').addEventListener('click', startVowelChe
 const tourSteps = [
   {
     selector: '.camera-wrap',
-    title: '① 顔の位置を合わせる',
-    text: '緑（または黄色）の点線の枠に、顔をおさめてください。スマホが傾いていると案内が表示されます。',
+    title: 'ここに顔を合わせる',
+    text: '点線の枠の中に顔を入れてください。',
   },
   {
     selector: '#modeBar',
-    title: '② 表示モードを切り替える',
-    text: '「骨格」「筋肉」「複合」「🎭アバター」から見やすい表示を選べます。',
+    title: 'ここで表示を切り替える',
+    text: 'タップすると見え方が変わります。まずは「骨格」のままでOKです。',
   },
   {
     selector: '#btnVowelCheck',
-    title: '③ 発音チェック',
-    text: '「あ・い・う・え・お」と自然に発音すると、口角・鼻・頬の癖がわかります。',
+    title: 'ここを押すと発音チェック',
+    text: '「あ・い・う・え・お」と話すだけで、口元の癖がわかります。',
   },
   {
     selector: '#btnRec',
-    title: '④ 録画・再生',
-    text: '動きを録画して、あとでゆっくりスロー再生できます。',
+    title: 'ここを押すと録画',
+    text: '動きを記録して、あとでゆっくり見返せます。',
   },
   {
     selector: '.panel-tabs',
-    title: '⑤ 結果を確認する',
-    text: '「スコア」「発音」「軌跡・再生」「詳細」のタブで、それぞれの結果を確認できます。',
+    title: 'ここで結果を見る',
+    text: 'タップすると、それぞれの結果に切り替わります。',
   },
 ];
 
