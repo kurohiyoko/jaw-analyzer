@@ -354,6 +354,63 @@ header {
 .vowel-prompt-bar-wrap { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
 .vowel-prompt-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
 
+/* ステージ間の告知バナー */
+.stage-announce {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,14,20,0.75);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 30px;
+  line-height: 1.7;
+  z-index: 50;
+  white-space: pre-line;
+}
+
+/* カウントダウン（3・2・1） */
+.countdown-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 110px;
+  background: rgba(10,14,20,0.85);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  color: var(--accent);
+  font-size: 52px;
+  font-weight: 800;
+  z-index: 60;
+}
+
+/* 追加チェック（笑顔）：カメラを隠して背景＋文字のみ */
+.smile-stage-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #1a2030;
+  z-index: 70;
+}
+.smile-stage-text {
+  color: var(--accent);
+  font-size: 34px;
+  font-weight: 800;
+  text-align: center;
+  padding: 0 20px;
+  white-space: pre-line;
+}
+
 /* 下パネル */
 .bottom-panel {
   flex-shrink: 0;
@@ -669,6 +726,17 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="vowelPromptBar"></div></div>
       </div>
 
+      <!-- ステージ間の告知バナー -->
+      <div class="stage-announce" id="stageAnnounce"></div>
+
+      <!-- カウントダウン（3・2・1） -->
+      <div class="countdown-box" id="countdownBox"></div>
+
+      <!-- 追加チェック（笑顔）：カメラ映像を隠して背景＋文字のみ表示 -->
+      <div class="smile-stage-overlay" id="smileStageOverlay">
+        <div class="smile-stage-text" id="smileStageText"></div>
+      </div>
+
       <!-- スコアオーバーレイ -->
       <div class="score-overlay" id="scoreOverlay">
         <div class="score-chip">
@@ -711,6 +779,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="score">スコア</button>
       <button class="panel-tab" data-tab="vowel">発音</button>
+      <button class="panel-tab" data-tab="smile">笑顔</button>
       <button class="panel-tab" data-tab="traj">軌跡・再生</button>
       <button class="panel-tab" data-tab="detail">詳細</button>
     </div>
@@ -766,7 +835,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <!-- 発音チェックタブ（あ・い・う・え・お） -->
       <div class="panel-section" id="tab-vowel">
         <div class="vowel-result-empty" id="vowelResultEmpty">
-          カメラ映像右下の「🗣 発音チェック」ボタンを押して、「あ・い・う・え・お」と自然に連続で発音してください（4秒間）。区切らずに自然な話し方でOKです。
+          画面下の「▶ セルフチェックを始める」から、案内に従って発音すると結果が表示されます。
         </div>
         <div class="vowel-result" id="vowelResult" style="display:none">
           <div class="vowel-item">
@@ -782,6 +851,24 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
             <div class="vowel-item-val" id="vw-cheek">—</div>
           </div>
           <div class="vowel-comment" id="vw-comment"></div>
+        </div>
+      </div>
+
+      <!-- 笑顔チェックタブ（追加チェック） -->
+      <div class="panel-section" id="tab-smile">
+        <div class="vowel-result-empty" id="smileResultEmpty">
+          画面下の「▶ セルフチェックを始める」の最後に「笑ってください」という案内が出ます。笑顔のときの左右差はここに表示されます。
+        </div>
+        <div class="vowel-result" id="smileResult" style="display:none">
+          <div class="vowel-item">
+            <div class="vowel-item-label">笑顔の口角の癖</div>
+            <div class="vowel-item-val" id="sm-corner">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">笑顔時の頬の左右差</div>
+            <div class="vowel-item-val" id="sm-cheek">—</div>
+          </div>
+          <div class="vowel-comment" id="sm-comment"></div>
         </div>
       </div>
 
@@ -880,6 +967,8 @@ let deviceTilt = 0;
 // 発音チェック（あ・い・う・え・お）用状態
 let vowelRecording = false;
 let afterVowelCheckCallback = null;
+let smileRecording = false;
+let smileFrames = [];
 let vowelFrames = [];
 
 // ① 手ブレ平滑化バッファ（直近6フレーム移動平均）
@@ -1130,6 +1219,11 @@ function onResults(results) {
   // 発音チェック中はフレームごとに記録
   if (vowelRecording) {
     vowelFrames.push({ cornerDiffNorm, noseAngle, cheekWidthDiffNorm, openPct });
+  }
+
+  // 笑顔チェック中はフレームごとに記録
+  if (smileRecording) {
+    smileFrames.push({ cornerDiffNorm, cheekWidthDiffNorm, noseAngle });
   }
 
   // 部位別スコア
@@ -1568,22 +1662,154 @@ function setNumericVisible(visible) {
   document.getElementById('modeBar').style.display = visible ? '' : 'none';
 }
 
-// ===== セルフチェック統合フロー（①開口→②発音を自動で連続実行） =====
-function startGuidedCheck() {
+// ===== 汎用ヘルパー =====
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 告知バナー（ステージの切り替わりを知らせる短い文言）
+function showAnnounce(text, duration) {
+  return new Promise(resolve => {
+    const el = document.getElementById('stageAnnounce');
+    el.textContent = text;
+    el.style.display = 'flex';
+    setTimeout(() => {
+      el.style.display = 'none';
+      resolve();
+    }, duration);
+  });
+}
+
+// カウントダウン（3・2・1／画面中央の四角い背景に表示）
+function runCountdown() {
+  return new Promise(resolve => {
+    const box = document.getElementById('countdownBox');
+    box.style.display = 'flex';
+    const seq = ['3', '2', '1'];
+    let i = 0;
+    function step() {
+      box.textContent = seq[i];
+      i++;
+      if (i < seq.length) {
+        setTimeout(step, 700);
+      } else {
+        setTimeout(() => {
+          box.style.display = 'none';
+          resolve();
+        }, 700);
+      }
+    }
+    step();
+  });
+}
+
+// startJawStage / startVowelCheck をPromise化（順番に await するため）
+function startJawStageP() {
+  return new Promise(resolve => startJawStage(resolve));
+}
+function startVowelCheckP() {
+  return new Promise(resolve => {
+    afterVowelCheckCallback = resolve;
+    startVowelCheck();
+  });
+}
+
+// ===== 追加チェック（笑顔）：カメラ映像を隠し、背景＋文字のみで進行 =====
+function startSmileStage(onDone) {
+  const overlay = document.getElementById('smileStageOverlay');
+  const text = document.getElementById('smileStageText');
+  overlay.style.display = 'flex';
+  smileFrames = [];
+
+  const seq = ['3', '2', '1', '😊\n笑ってください'];
+  let i = 0;
+  function step() {
+    text.textContent = seq[i];
+    if (i === seq.length - 1) {
+      smileRecording = true;
+      // 笑顔を4秒間保持してもらい、その間のフレームを記録
+      setTimeout(() => {
+        smileRecording = false;
+        overlay.style.display = 'none';
+        finishSmileCheck();
+        onDone && onDone();
+      }, 4000);
+    } else {
+      i++;
+      setTimeout(step, 700);
+    }
+  }
+  step();
+}
+function startSmileStageP() {
+  return new Promise(resolve => startSmileStage(resolve));
+}
+
+function finishSmileCheck() {
+  if (smileFrames.length < 5) {
+    document.getElementById('sm-comment').textContent = '顔がうまく検出できませんでした。もう一度お試しください。';
+    document.getElementById('smileResultEmpty').style.display = 'none';
+    document.getElementById('smileResult').style.display = 'block';
+    return;
+  }
+  const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const cornerAvg = avg(smileFrames.map(f => f.cornerDiffNorm));
+  const cheekAvg = avg(smileFrames.map(f => f.cheekWidthDiffNorm));
+
+  const CORNER_TH = 3.0;
+  const CHEEK_TH = 4.0;
+
+  let cornerText, cheekText;
+  if (Math.abs(cornerAvg) < CORNER_TH) {
+    cornerText = '笑顔でも左右差は小さく、バランス良く上がっています';
+  } else if (cornerAvg > 0) {
+    cornerText = '笑うと、左の口角がやや上がりやすい傾向があります';
+  } else {
+    cornerText = '笑うと、右の口角がやや上がりやすい傾向があります';
+  }
+  if (Math.abs(cheekAvg) < CHEEK_TH) {
+    cheekText = '笑顔時の頬の左右差は小さいです';
+  } else if (cheekAvg > 0) {
+    cheekText = '笑うと、左の頬がやや張り出しやすい傾向があります';
+  } else {
+    cheekText = '笑うと、右の頬がやや張り出しやすい傾向があります';
+  }
+
+  document.getElementById('sm-corner').textContent = cornerText;
+  document.getElementById('sm-cheek').textContent = cheekText;
+
+  const flagCount = [Math.abs(cornerAvg) >= CORNER_TH, Math.abs(cheekAvg) >= CHEEK_TH].filter(Boolean).length;
+  document.getElementById('sm-comment').textContent =
+    flagCount === 0
+      ? '笑顔での癖は目立って現れていません。'
+      : '普段の会話より、笑顔のときに左右差が出やすいタイプです。表情筋の使い方の癖が影響している可能性があります。';
+
+  document.getElementById('smileResultEmpty').style.display = 'none';
+  document.getElementById('smileResult').style.display = 'block';
+}
+
+// ===== セルフチェック統合フロー（告知→カウントダウン→①開口→②発音→③笑顔） =====
+async function startGuidedCheck() {
   if (!running) return;
   const btn = document.getElementById('btnStartCheck');
   btn.disabled = true;
   btn.textContent = 'チェック中...';
   setNumericVisible(false);
 
-  startJawStage(() => {
-    afterVowelCheckCallback = () => {
-      setNumericVisible(true);
-      btn.disabled = false;
-      btn.textContent = '🔄 もう一度チェックする';
-    };
-    startVowelCheck();
-  });
+  await showAnnounce('初めに　顎の歪みを\nチェックします', 1800);
+  await runCountdown();
+  await startJawStageP();
+
+  await showAnnounce('続いて表情チェックに\n進みます', 1800);
+  await runCountdown();
+  await startVowelCheckP();
+
+  await showAnnounce('続いて追加チェックです', 1500);
+  await startSmileStageP();
+
+  setNumericVisible(true);
+  btn.disabled = false;
+  btn.textContent = '🔄 もう一度チェックする';
 }
 
 // ===== 発音チェック（あ・い・う・え・お） =====
