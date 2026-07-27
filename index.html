@@ -48,6 +48,60 @@ header {
 .badge-warn { background: rgba(246,173,85,0.12); color: var(--warn); border: 1px solid rgba(246,173,85,0.3); }
 .badge-ok { background: rgba(104,211,145,0.12); color: var(--accent2); border: 1px solid rgba(104,211,145,0.3); }
 
+/* 操作ガイドボタン */
+.tour-btn {
+  background: rgba(99,179,237,0.12);
+  border: 1px solid rgba(99,179,237,0.4);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 操作ガイド（ツアー）オーバーレイ */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: none;
+  pointer-events: none;
+}
+.tour-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  transition: clip-path 0.35s ease;
+}
+.tour-caption {
+  position: absolute;
+  background: #1a2030;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: min(80vw, 300px);
+  pointer-events: all;
+  transition: top 0.35s ease, left 0.35s ease;
+}
+.tour-caption-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.tour-caption-text { font-size: 12px; color: #e2e8f0; line-height: 1.6; margin-bottom: 10px; }
+.tour-caption-foot { display: flex; align-items: center; justify-content: space-between; }
+.tour-dots { display: flex; gap: 5px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+.tour-dot.active { background: var(--accent); }
+.tour-btns { display: flex; gap: 6px; }
+.tour-skip, .tour-next {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: #cbd5e0;
+}
+.tour-next { background: var(--accent); color: #0a0e14; border-color: var(--accent); font-weight: 700; }
+
 /* ON/OFFスイッチ */
 .switch-wrap { display: flex; align-items: center; gap: 6px; }
 .switch-label { font-size: 11px; color: var(--text2); }
@@ -501,6 +555,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 <header>
   <div class="logo"><strong>顎運動セルフチェック</strong> | 波鍼灸院</div>
   <div class="header-right">
+    <button class="tour-btn" id="btnTour">操作ガイド</button>
     <div class="switch-wrap">
       <span class="switch-label">解析</span>
       <div class="switch on" id="mainSwitch"></div>
@@ -508,6 +563,22 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
     <span class="badge badge-warn" id="envBadge">照明確認中</span>
   </div>
 </header>
+
+<!-- 操作ガイド（ツアー） -->
+<div class="tour-overlay" id="tourOverlay">
+  <div class="tour-dim" id="tourDim"></div>
+  <div class="tour-caption" id="tourCaption">
+    <div class="tour-caption-title" id="tourTitle"></div>
+    <div class="tour-caption-text" id="tourText"></div>
+    <div class="tour-caption-foot">
+      <div class="tour-dots" id="tourDots"></div>
+      <div class="tour-btns">
+        <button class="tour-skip" id="tourSkip">スキップ</button>
+        <button class="tour-next" id="tourNext">次へ</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="main">
   <!-- カメラ -->
@@ -1639,6 +1710,11 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     });
     mpCam.start();
     running = true;
+
+    // 初回のみ、少し待ってから操作ガイドを自動再生
+    if (!localStorage.getItem('jawAnalyzerTourSeen')) {
+      setTimeout(() => tourStart(), 1800);
+    }
   } catch(e) {
     alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
   }
@@ -1669,6 +1745,117 @@ document.getElementById('btnRec').addEventListener('click', () => {
   recording ? stopRecording() : startRecording();
 });
 document.getElementById('btnVowelCheck').addEventListener('click', startVowelCheck);
+
+// ===== 操作ガイド（ツアー） =====
+const tourSteps = [
+  {
+    selector: '.camera-wrap',
+    title: '① 顔の位置を合わせる',
+    text: '緑（または黄色）の点線の枠に、顔をおさめてください。スマホが傾いていると案内が表示されます。',
+  },
+  {
+    selector: '#modeBar',
+    title: '② 表示モードを切り替える',
+    text: '「骨格」「筋肉」「複合」「🎭アバター」から見やすい表示を選べます。',
+  },
+  {
+    selector: '#btnVowelCheck',
+    title: '③ 発音チェック',
+    text: '「あ・い・う・え・お」と自然に発音すると、口角・鼻・頬の癖がわかります。',
+  },
+  {
+    selector: '#btnRec',
+    title: '④ 録画・再生',
+    text: '動きを録画して、あとでゆっくりスロー再生できます。',
+  },
+  {
+    selector: '.panel-tabs',
+    title: '⑤ 結果を確認する',
+    text: '「スコア」「発音」「軌跡・再生」「詳細」のタブで、それぞれの結果を確認できます。',
+  },
+];
+
+let tourIndex = 0;
+let tourAutoTimer = null;
+
+function tourShowStep(i) {
+  clearTimeout(tourAutoTimer);
+  const step = tourSteps[i];
+  const target = document.querySelector(step.selector);
+  const overlay = document.getElementById('tourOverlay');
+  const dim = document.getElementById('tourDim');
+  const caption = document.getElementById('tourCaption');
+
+  overlay.style.display = 'block';
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourText').textContent = step.text;
+
+  // ドット
+  const dotsWrap = document.getElementById('tourDots');
+  dotsWrap.innerHTML = '';
+  tourSteps.forEach((_, di) => {
+    const d = document.createElement('div');
+    d.className = 'tour-dot' + (di === i ? ' active' : '');
+    dotsWrap.appendChild(d);
+  });
+
+  // スポットライト（対象要素をくり抜く）
+  if (target) {
+    const r = target.getBoundingClientRect();
+    const pad = 8;
+    const x1 = Math.max(0, r.left - pad), y1 = Math.max(0, r.top - pad);
+    const x2 = r.right + pad, y2 = r.bottom + pad;
+    dim.style.clipPath = `polygon(
+      0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+      ${x1}px ${y1}px, ${x1}px ${y2}px, ${x2}px ${y2}px, ${x2}px ${y1}px, ${x1}px ${y1}px
+    )`;
+
+    // 吹き出しの位置（対象の下、はみ出す場合は上に）
+    const capH = 130;
+    let top = y2 + 12;
+    if (top + capH > window.innerHeight) top = Math.max(8, y1 - capH - 12);
+    let left = Math.min(Math.max(8, r.left), window.innerWidth - 300 - 8);
+    caption.style.top = top + 'px';
+    caption.style.left = left + 'px';
+  } else {
+    dim.style.clipPath = 'none';
+    caption.style.top = '40%';
+    caption.style.left = '50%';
+    caption.style.transform = 'translate(-50%,-50%)';
+  }
+
+  document.getElementById('tourNext').textContent = (i === tourSteps.length - 1) ? '閉じる' : '次へ';
+
+  // 4秒後に自動で次へ（最後のステップでは自動送りしない）
+  if (i < tourSteps.length - 1) {
+    tourAutoTimer = setTimeout(() => tourNextStep(), 4000);
+  }
+}
+
+function tourNextStep() {
+  tourIndex++;
+  if (tourIndex >= tourSteps.length) {
+    tourEnd();
+  } else {
+    tourShowStep(tourIndex);
+  }
+}
+
+function tourEnd() {
+  clearTimeout(tourAutoTimer);
+  document.getElementById('tourOverlay').style.display = 'none';
+  document.getElementById('tourCaption').style.transform = '';
+  localStorage.setItem('jawAnalyzerTourSeen', '1');
+}
+
+function tourStart() {
+  tourIndex = 0;
+  tourShowStep(0);
+}
+
+document.getElementById('btnTour').addEventListener('click', tourStart);
+document.getElementById('tourNext').addEventListener('click', tourNextStep);
+document.getElementById('tourSkip').addEventListener('click', tourEnd);
 document.getElementById('btnClearTraj').addEventListener('click', () => {
   jawTrail = [];
   smoothBuf.length = 0;
