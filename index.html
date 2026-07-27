@@ -1205,8 +1205,8 @@ function onResults(results) {
 
   if (mode === 'avatar') {
     // ===== マンガ風シンプルアバター表示（大ざっぱな左右差・動きの役）=====
-    // アバターを見やすくするため、このモードのときだけ背景を暗く塗りつぶす
-    ctx.fillStyle = '#0a0e14';
+    // このモードのときだけ、見やすさのため背景を白にする（黒は使わない）
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const acx = W / 2;
@@ -1245,7 +1245,7 @@ function onResults(results) {
     ctx.fill();
 
     // 眨
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.strokeStyle = 'rgba(45,55,72,0.85)';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     const browY = -ary * 0.38;
@@ -1263,8 +1263,8 @@ function onResults(results) {
     const eyeW = arx * 0.16;
     const eyeHBase = ary * 0.09;
     ctx.lineWidth = 1.5;
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = 'rgba(20,20,20,0.7)';
+    ctx.fillStyle = '#f2f2f2';
+    ctx.strokeStyle = 'rgba(45,55,72,0.8)';
     ctx.beginPath();
     ctx.ellipse(-arx * 0.35, eyeY, eyeW, eyeHBase * (1 + clamp(eyeN, 0, 1) * 0.5), 0, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
@@ -1272,7 +1272,7 @@ function onResults(results) {
     ctx.beginPath();
     ctx.arc(-arx * 0.35, eyeY, eyeHBase * 0.55 * (1 + clamp(eyeN, 0, 1) * 0.3), 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#f2f2f2';
     ctx.beginPath();
     ctx.ellipse(arx * 0.35, eyeY, eyeW, eyeHBase * (1 + clamp(-eyeN, 0, 1) * 0.5), 0, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
@@ -1282,7 +1282,7 @@ function onResults(results) {
     ctx.fill();
 
     // 鼻（傾き）
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.strokeStyle = 'rgba(45,55,72,0.6)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(noseN * arx * 0.04, -ary * 0.05);
@@ -1296,7 +1296,7 @@ function onResults(results) {
     const cornerLY = mouthY - cornerN * ary * 0.08;
     const cornerRY = mouthY + cornerN * ary * 0.08;
     ctx.fillStyle = 'rgba(200,60,60,0.55)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.strokeStyle = 'rgba(45,55,72,0.7)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(-mouthW, cornerLY);
@@ -1308,7 +1308,7 @@ function onResults(results) {
 
     ctx.restore();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillStyle = 'rgba(45,55,72,0.55)';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('動きを誇張して表示（実際の度合いとは縮尺が異なります）', W / 2, H - 8);
