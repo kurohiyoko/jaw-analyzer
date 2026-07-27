@@ -304,6 +304,28 @@ header {
 .rec-btn.recording { background: rgba(252,129,129,0.2); animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+/* チェック開始ボタン（統合・シンプル操作） */
+.start-check-wrap {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: all;
+}
+.start-check-btn {
+  background: var(--accent);
+  color: #0a0e14;
+  border: none;
+  padding: 12px 26px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(99,179,237,0.4);
+  white-space: nowrap;
+}
+.start-check-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* 発音チェックボタン（録画ボタンと同系統・色だけ変更） */
 .vowel-btn {
   background: rgba(10,14,20,0.85);
@@ -635,9 +657,15 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <!-- 環境警告 -->
       <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
 
+      <!-- 開口チェック案内 -->
+      <div class="vowel-prompt" id="jawPrompt">
+        <div class="vowel-prompt-text"><b>① 開口チェック</b><br>ゆっくり口を大きく<br>開け閉めしてください</div>
+        <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="jawPromptBar"></div></div>
+      </div>
+
       <!-- 発音チェック案内 -->
       <div class="vowel-prompt" id="vowelPrompt">
-        <div class="vowel-prompt-text">「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
+        <div class="vowel-prompt-text"><b>② 発音チェック</b><br>「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
         <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="vowelPromptBar"></div></div>
       </div>
 
@@ -665,10 +693,15 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         <button class="mode-btn" data-mode="avatar">🎭アバター</button>
       </div>
 
-      <!-- 録画 -->
-      <div class="rec-btn-wrap">
+      <!-- 録画（内部処理用・非表示） -->
+      <div class="rec-btn-wrap" style="display:none;">
         <button class="rec-btn vowel-btn" id="btnVowelCheck">🗣 発音チェック</button>
         <button class="rec-btn" id="btnRec">● 録画</button>
+      </div>
+
+      <!-- チェック開始ボタン（統合） -->
+      <div class="start-check-wrap">
+        <button class="start-check-btn" id="btnStartCheck">▶ セルフチェックを始める</button>
       </div>
     </div>
   </div>
@@ -737,7 +770,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         </div>
         <div class="vowel-result" id="vowelResult" style="display:none">
           <div class="vowel-item">
-            <div class="vowel-item-label">口角の癒</div>
+            <div class="vowel-item-label">口角の癖</div>
             <div class="vowel-item-val" id="vw-corner">—</div>
           </div>
           <div class="vowel-item">
@@ -745,7 +778,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
             <div class="vowel-item-val" id="vw-nose">—</div>
           </div>
           <div class="vowel-item">
-            <div class="vowel-item-label">頼の左右差</div>
+            <div class="vowel-item-label">頬の左右差</div>
             <div class="vowel-item-val" id="vw-cheek">—</div>
           </div>
           <div class="vowel-comment" id="vw-comment"></div>
@@ -846,6 +879,7 @@ let deviceTilt = 0;
 
 // 発音チェック（あ・い・う・え・お）用状態
 let vowelRecording = false;
+let afterVowelCheckCallback = null;
 let vowelFrames = [];
 
 // ① 手ブレ平滑化バッファ（直近6フレーム移動平均）
@@ -1090,7 +1124,7 @@ function onResults(results) {
   const noseAngle = Math.atan2(nostR.y - nostL.y, nostR.x - nostL.x) * 180 / Math.PI;
   // 口角の高さ差（符号付き：正=右口角が高い、負=左口角が高い）
   const cornerDiffNorm = ((mR.y - mL.y) / eyeDist) * 100;
-  // 頼の張り出し差（鼻中心からの横方向距離の左右差、符号付き：正=左頼の方が張り出している）
+  // 頬の張り出し差（鼻中心からの横方向距離の左右差、符号付き：正=左頬の方が張り出している）
   const cheekWidthDiffNorm = ((Math.abs(cheekL.x - nose.x) - Math.abs(cheekR.x - nose.x)) / eyeDist) * 100;
 
   // 発音チェック中はフレームごとに記録
@@ -1289,7 +1323,7 @@ function onResults(results) {
     const openN = clamp(openPct / 50, 0, 1);                                // 開口量
     const cornerN = clamp(cornerDiffNorm / 6, -1, 1);                       // 口角差（正：左が上がりやすい）
     const browN = clamp(((browR.y - browL.y) / eyeDist) * 100 / 4, -1, 1);  // 眨差（正：左が高い）
-    const cheekN = clamp(cheekWidthDiffNorm / 6, -1, 1);                    // 頼左右差（正：左が張り出し）
+    const cheekN = clamp(cheekWidthDiffNorm / 6, -1, 1);                    // 頬左右差（正：左が張り出し）
     const noseN = clamp(noseAngle / 8, -1, 1);                              // 鼻の傾き
     const eyeN = clamp(((eyeOpenL - eyeOpenR) / eyeDist) * 100 / 3, -1, 1); // 目の開き差（正：左が大きい）
 
@@ -1305,7 +1339,7 @@ function onResults(results) {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // 頼（左右差で大きさが変化）
+    // 頬（左右差で大きさが変化）
     const cheekBaseR = arx * 0.16;
     ctx.fillStyle = 'rgba(252,129,129,0.35)';
     ctx.beginPath();
@@ -1503,6 +1537,55 @@ function stopRecording() {
       : '録画データなし';
 }
 
+// ===== ①開口チェック（自動タイマー式） =====
+function startJawStage(onDone) {
+  const prompt = document.getElementById('jawPrompt');
+  const bar = document.getElementById('jawPromptBar');
+  prompt.style.display = 'block';
+  bar.style.width = '0%';
+
+  startRecording();
+
+  const duration = 5000; // 5秒間、開口動作を記録
+  const startT = performance.now();
+  function tick() {
+    const elapsed = performance.now() - startT;
+    bar.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+    if (elapsed < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      stopRecording();
+      prompt.style.display = 'none';
+      onDone && onDone();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ===== 数値表示・モード切替バーの表示ON/OFF（チェック中は隠してシンプルに） =====
+function setNumericVisible(visible) {
+  document.getElementById('scoreOverlay').style.display = visible ? '' : 'none';
+  document.getElementById('modeBar').style.display = visible ? '' : 'none';
+}
+
+// ===== セルフチェック統合フロー（①開口→②発音を自動で連続実行） =====
+function startGuidedCheck() {
+  if (!running) return;
+  const btn = document.getElementById('btnStartCheck');
+  btn.disabled = true;
+  btn.textContent = 'チェック中...';
+  setNumericVisible(false);
+
+  startJawStage(() => {
+    afterVowelCheckCallback = () => {
+      setNumericVisible(true);
+      btn.disabled = false;
+      btn.textContent = '🔄 もう一度チェックする';
+    };
+    startVowelCheck();
+  });
+}
+
 // ===== 発音チェック（あ・い・う・え・お） =====
 function startVowelCheck() {
   if (vowelRecording || !running) return;
@@ -1578,11 +1661,11 @@ function finishVowelCheck() {
   }
 
   if (Math.abs(cheekAvg) < CHEEK_TH) {
-    cheekText = '頼の左右差は小さいです';
+    cheekText = '頬の左右差は小さいです';
   } else if (cheekAvg > 0) {
-    cheekText = '発音時、左の頼がやや張り出しやすい傾向があります';
+    cheekText = '発音時、左の頬がやや張り出しやすい傾向があります';
   } else {
-    cheekText = '発音時、右の頼がやや張り出しやすい傾向があります';
+    cheekText = '発音時、右の頬がやや張り出しやすい傾向があります';
   }
 
   document.getElementById('vw-corner').textContent = cornerText;
@@ -1597,10 +1680,10 @@ function finishVowelCheck() {
 
   document.getElementById('vw-comment').textContent =
     flagCount === 0
-      ? '発音時の癒は目立って現れていません。'
+      ? '発音時の癖は目立って現れていません。'
       : flagCount === 1
-      ? '1つの項目にやや癒が見られます。表情筋の使い方に左右差がある可能性があります。'
-      : '複数の項目に癒が見られます。日常の噴み癒・表情の使い方の左右差が影響している可能性があります。';
+      ? '1つの項目にやや癖が見られます。表情筋の使い方に左右差がある可能性があります。'
+      : '複数の項目に癖が見られます。日常の噛み癖・表情の使い方の左右差が影響している可能性があります。';
 
   document.getElementById('vowelResultEmpty').style.display = 'none';
   document.getElementById('vowelResult').style.display = 'block';
@@ -1610,6 +1693,12 @@ function finishVowelCheck() {
   document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
   document.querySelector('.panel-tab[data-tab="vowel"]').classList.add('active');
   document.getElementById('tab-vowel').classList.add('active');
+
+  if (typeof afterVowelCheckCallback === 'function') {
+    const cb = afterVowelCheckCallback;
+    afterVowelCheckCallback = null;
+    cb();
+  }
 }
 
 // ===== スロー再生 =====
@@ -1703,6 +1792,7 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     document.getElementById('startScreen').style.display = 'none';
     document.getElementById('camOverlay').style.display = 'block';
     document.getElementById('bottomPanel').style.display = 'block';
+    setNumericVisible(false);
 
     const mpCam = new Camera(video, {
       onFrame: async () => { await faceMesh.send({ image: video }); },
@@ -1745,6 +1835,7 @@ document.getElementById('btnRec').addEventListener('click', () => {
   recording ? stopRecording() : startRecording();
 });
 document.getElementById('btnVowelCheck').addEventListener('click', startVowelCheck);
+document.getElementById('btnStartCheck').addEventListener('click', startGuidedCheck);
 
 // ===== 操作ガイド（ツアー） =====
 const tourSteps = [
@@ -1754,24 +1845,14 @@ const tourSteps = [
     text: '点線の枠の中に顔を入れてください。',
   },
   {
-    selector: '#modeBar',
-    title: 'ここで表示を切り替える',
-    text: 'タップすると見え方が変わります。まずは「骨格」のままでOKです。',
-  },
-  {
-    selector: '#btnVowelCheck',
-    title: 'ここを押すと発音チェック',
-    text: '「あ・い・う・え・お」と話すだけで、口元の癖がわかります。',
-  },
-  {
-    selector: '#btnRec',
-    title: 'ここを押すと録画',
-    text: '動きを記録して、あとでゆっくり見返せます。',
+    selector: '#btnStartCheck',
+    title: 'ここを押すとチェック開始',
+    text: '「開口チェック」→「発音チェック」の順に自動で進みます。案内に従って動かすだけです。',
   },
   {
     selector: '.panel-tabs',
     title: 'ここで結果を見る',
-    text: 'タップすると、それぞれの結果に切り替わります。',
+    text: 'チェックが終わると、それぞれの結果に切り替えて確認できます。',
   },
 ];
 
