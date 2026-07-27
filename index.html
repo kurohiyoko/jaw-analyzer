@@ -232,6 +232,10 @@ header {
   bottom: 10px;
   right: 10px;
   pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
 }
 .rec-btn {
   background: rgba(10,14,20,0.85);
@@ -241,9 +245,38 @@ header {
   border-radius: 8px;
   font-size: 11px;
   cursor: pointer;
+  white-space: nowrap;
 }
 .rec-btn.recording { background: rgba(252,129,129,0.2); animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* 発音チェックボタン（録画ボタンと同系統・色だけ変更） */
+.vowel-btn {
+  background: rgba(10,14,20,0.85);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.vowel-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* 発音チェック案内オーバーレイ */
+.vowel-prompt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10,14,20,0.92);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 18px 22px;
+  text-align: center;
+  display: none;
+  pointer-events: none;
+  width: 78%;
+  max-width: 320px;
+}
+.vowel-prompt-text { font-size: 15px; color: var(--accent); font-weight: 500; margin-bottom: 12px; line-height: 1.6; }
+.vowel-prompt-bar-wrap { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.vowel-prompt-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
 
 /* 下パネル */
 .bottom-panel {
@@ -388,6 +421,27 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 .detail-label { font-size: 10px; color: var(--text2); }
 .detail-val { font-size: 13px; font-weight: 500; }
 
+/* 発音チェック結果 */
+.vowel-result-empty { font-size: 11px; color: var(--text2); line-height: 1.8; padding: 10px 2px; }
+.vowel-result { display: flex; flex-direction: column; gap: 6px; }
+.vowel-item {
+  background: var(--surface2);
+  border-radius: 5px;
+  padding: 8px 10px;
+}
+.vowel-item-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; }
+.vowel-item-val { font-size: 12px; font-weight: 500; line-height: 1.5; }
+.vowel-comment {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.7;
+  padding: 8px;
+  background: rgba(99,179,237,0.06);
+  border: 1px solid rgba(99,179,237,0.2);
+  border-radius: 5px;
+  margin-top: 2px;
+}
+
 /* SNSシェア */
 .share-btn {
   width: 100%;
@@ -510,6 +564,12 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <!-- 環境警告 -->
       <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
 
+      <!-- 発音チェック案内 -->
+      <div class="vowel-prompt" id="vowelPrompt">
+        <div class="vowel-prompt-text">「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
+        <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="vowelPromptBar"></div></div>
+      </div>
+
       <!-- スコアオーバーレイ -->
       <div class="score-overlay" id="scoreOverlay">
         <div class="score-chip">
@@ -531,10 +591,12 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         <button class="mode-btn active" data-mode="skeleton">骨格</button>
         <button class="mode-btn" data-mode="muscle">筋肉</button>
         <button class="mode-btn" data-mode="combined">複合</button>
+        <button class="mode-btn" data-mode="avatar">🎭アバター</button>
       </div>
 
       <!-- 録画 -->
       <div class="rec-btn-wrap">
+        <button class="rec-btn vowel-btn" id="btnVowelCheck">🗣 発音チェック</button>
         <button class="rec-btn" id="btnRec">● 録画</button>
       </div>
     </div>
@@ -544,6 +606,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
   <div class="bottom-panel" id="bottomPanel">
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="score">スコア</button>
+      <button class="panel-tab" data-tab="vowel">発音</button>
       <button class="panel-tab" data-tab="traj">軌跡・再生</button>
       <button class="panel-tab" data-tab="detail">詳細</button>
     </div>
@@ -594,6 +657,28 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
           </div>
         </div>
         <button class="share-btn" id="shareBtn">📤 結果をSNSでシェア（リンクのみ）</button>
+      </div>
+
+      <!-- 発音チェックタブ（あ・い・う・え・お） -->
+      <div class="panel-section" id="tab-vowel">
+        <div class="vowel-result-empty" id="vowelResultEmpty">
+          カメラ映像右下の「🗣 発音チェック」ボタンを押して、「あ・い・う・え・お」と自然に連続で発音してください（4秒間）。区切らずに自然な話し方でOKです。
+        </div>
+        <div class="vowel-result" id="vowelResult" style="display:none">
+          <div class="vowel-item">
+            <div class="vowel-item-label">口角の癒</div>
+            <div class="vowel-item-val" id="vw-corner">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">鼻の傾き</div>
+            <div class="vowel-item-val" id="vw-nose">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">頼の左右差</div>
+            <div class="vowel-item-val" id="vw-cheek">—</div>
+          </div>
+          <div class="vowel-comment" id="vw-comment"></div>
+        </div>
       </div>
 
       <!-- 軌跡・再生タブ -->
@@ -687,6 +772,10 @@ let recording = false;
 let recordedFrames = [];
 let replayTimer = null;
 let deviceTilt = 0;
+
+// 発音チェック（あ・い・う・え・お）用状態
+let vowelRecording = false;
+let vowelFrames = [];
 
 // ① 手ブレ平滑化バッファ（直近6フレーム移動平均）
 const smoothBuf = [];
@@ -787,7 +876,7 @@ function checkLighting(imageData) {
 
 // ===== スコア計算ユーティリティ =====
 function scoreFromDiff(diff, maxDiff) {
-  return Math.max(0, Math.round(100 - (diff / maxDiff) * 100));
+  return Math.min(100, Math.max(0, Math.round(100 - (diff / maxDiff) * 100)));
 }
 
 function colorClass(score) {
@@ -823,10 +912,8 @@ function onResults(results) {
   const W = canvas.width;
   const H = canvas.height;
 
-  // === 背景を黒で塗りつぶし（カメラ映像を隠す）===
+  // === カメラの実写映像はそのまま見せる（canvasは透明にしてvideoを透過）===
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, W, H);
 
   // === 顔位置ガイド楕円（スマホ傾きで傾く）===
   const tiltRad = (deviceTilt || 0) * Math.PI / 180;
@@ -927,8 +1014,21 @@ function onResults(results) {
   const cheekDiff = Math.abs(cheekL.y - cheekR.y);
   const jawContourDiff = Math.abs(jawShiftPx);
 
+  // ===== 発音チェック用指標（顕の大きさに依存しないよう eyeDist で正規化）=====
+  // 鼻の傾き：小鼻左右を結ぶ線の角度（度）
+  const noseAngle = Math.atan2(nostR.y - nostL.y, nostR.x - nostL.x) * 180 / Math.PI;
+  // 口角の高さ差（符号付き：正=右口角が高い、負=左口角が高い）
+  const cornerDiffNorm = ((mR.y - mL.y) / eyeDist) * 100;
+  // 頼の張り出し差（鼻中心からの横方向距離の左右差、符号付き：正=左頼の方が張り出している）
+  const cheekWidthDiffNorm = ((Math.abs(cheekL.x - nose.x) - Math.abs(cheekR.x - nose.x)) / eyeDist) * 100;
+
+  // 発音チェック中はフレームごとに記録
+  if (vowelRecording) {
+    vowelFrames.push({ cornerDiffNorm, noseAngle, cheekWidthDiffNorm, openPct });
+  }
+
   // 部位別スコア
-  const eyeScore = scoreFromDiff(eyeAngle * 2 + eyeOpenDiff, eyeDist * 0.4);
+  const eyeScore = scoreFromDiff(Math.abs(eyeAngle) * 2 + eyeOpenDiff, eyeDist * 0.4);
   const browScore = scoreFromDiff(browDiff, eyeDist * 0.3);
   const cheekScore = scoreFromDiff(cheekDiff, faceH * 0.15);
   const noseScore = scoreFromDiff(nostrilDiff, eyeDist * 0.2);
@@ -1103,6 +1203,117 @@ function onResults(results) {
     });
   }
 
+  if (mode === 'avatar') {
+    // ===== マンガ風シンプルアバター表示（大ざっぱな左右差・動きの役）=====
+    // アバターを見やすくするため、このモードのときだけ背景を暗く塗りつぶす
+    ctx.fillStyle = '#0a0e14';
+    ctx.fillRect(0, 0, W, H);
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const acx = W / 2;
+    const acy = H * 0.42;
+    const arx = Math.min(W * 0.24, H * 0.30);
+    const ary = arx * 1.25;
+
+    const jawShiftN = clamp(jawShiftPx / (eyeDist * 0.5), -1, 1);          // 顎の横ズレ
+    const openN = clamp(openPct / 50, 0, 1);                                // 開口量
+    const cornerN = clamp(cornerDiffNorm / 6, -1, 1);                       // 口角差（正：左が上がりやすい）
+    const browN = clamp(((browR.y - browL.y) / eyeDist) * 100 / 4, -1, 1);  // 眨差（正：左が高い）
+    const cheekN = clamp(cheekWidthDiffNorm / 6, -1, 1);                    // 頼左右差（正：左が張り出し）
+    const noseN = clamp(noseAngle / 8, -1, 1);                              // 鼻の傾き
+    const eyeN = clamp(((eyeOpenL - eyeOpenR) / eyeDist) * 100 / 3, -1, 1); // 目の開き差（正：左が大きい）
+
+    ctx.save();
+    ctx.translate(acx, acy);
+
+    // 輪郭
+    ctx.beginPath();
+    ctx.ellipse(jawShiftN * arx * 0.12, 0, arx, ary, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(99,179,237,0.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(99,179,237,0.75)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // 頼（左右差で大きさが変化）
+    const cheekBaseR = arx * 0.16;
+    ctx.fillStyle = 'rgba(252,129,129,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(-arx * 0.58, ary * 0.18, cheekBaseR * (1 + Math.max(0, cheekN) * 0.4), cheekBaseR * (1 + Math.max(0, cheekN) * 0.4), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(arx * 0.58, ary * 0.18, cheekBaseR * (1 + Math.max(0, -cheekN) * 0.4), cheekBaseR * (1 + Math.max(0, -cheekN) * 0.4), 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 眨
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    const browY = -ary * 0.38;
+    ctx.beginPath();
+    ctx.moveTo(-arx * 0.55, browY - browN * ary * 0.10);
+    ctx.quadraticCurveTo(-arx * 0.35, browY - browN * ary * 0.10 - ary * 0.02, -arx * 0.15, browY - browN * ary * 0.10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(arx * 0.15, browY + browN * ary * 0.10);
+    ctx.quadraticCurveTo(arx * 0.35, browY + browN * ary * 0.10 - ary * 0.02, arx * 0.55, browY + browN * ary * 0.10);
+    ctx.stroke();
+
+    // 目（開きの左右差）
+    const eyeY = -ary * 0.22;
+    const eyeW = arx * 0.16;
+    const eyeHBase = ary * 0.09;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(20,20,20,0.7)';
+    ctx.beginPath();
+    ctx.ellipse(-arx * 0.35, eyeY, eyeW, eyeHBase * (1 + clamp(eyeN, 0, 1) * 0.5), 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2d3748';
+    ctx.beginPath();
+    ctx.arc(-arx * 0.35, eyeY, eyeHBase * 0.55 * (1 + clamp(eyeN, 0, 1) * 0.3), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(arx * 0.35, eyeY, eyeW, eyeHBase * (1 + clamp(-eyeN, 0, 1) * 0.5), 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2d3748';
+    ctx.beginPath();
+    ctx.arc(arx * 0.35, eyeY, eyeHBase * 0.55 * (1 + clamp(-eyeN, 0, 1) * 0.3), 0, Math.PI * 2);
+    ctx.fill();
+
+    // 鼻（傾き）
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(noseN * arx * 0.04, -ary * 0.05);
+    ctx.lineTo(noseN * arx * 0.10, ary * 0.10);
+    ctx.stroke();
+
+    // 口（開口量＋口角の左右差）
+    const mouthY = ary * 0.5;
+    const mouthW = arx * 0.32;
+    const mouthOpenH = openN * ary * 0.22 + 2;
+    const cornerLY = mouthY - cornerN * ary * 0.08;
+    const cornerRY = mouthY + cornerN * ary * 0.08;
+    ctx.fillStyle = 'rgba(200,60,60,0.55)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-mouthW, cornerLY);
+    ctx.quadraticCurveTo(0, mouthY + mouthOpenH, mouthW, cornerRY);
+    ctx.quadraticCurveTo(0, mouthY - mouthOpenH * 0.3, -mouthW, cornerLY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('動きを誇張して表示（実際の度合いとは縮尺が異なります）', W / 2, H - 8);
+  }
+
   ctx.restore();
 
   // ===== UI更新 =====
@@ -1219,6 +1430,115 @@ function stopRecording() {
     recordedFrames.length > 0
       ? `録画完了: ${recordedFrames.length}フレーム　▶ 再生 / 📷 保存`
       : '録画データなし';
+}
+
+// ===== 発音チェック（あ・い・う・え・お） =====
+function startVowelCheck() {
+  if (vowelRecording || !running) return;
+  vowelRecording = true;
+  vowelFrames = [];
+
+  const btn = document.getElementById('btnVowelCheck');
+  btn.disabled = true;
+  btn.textContent = '発音中...';
+
+  const prompt = document.getElementById('vowelPrompt');
+  const bar = document.getElementById('vowelPromptBar');
+  prompt.style.display = 'block';
+  bar.style.width = '0%';
+
+  const duration = 4000; // 4秒間取得
+  const startT = performance.now();
+
+  function tick() {
+    const elapsed = performance.now() - startT;
+    bar.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+    if (elapsed < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      finishVowelCheck();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function finishVowelCheck() {
+  vowelRecording = false;
+  const btn = document.getElementById('btnVowelCheck');
+  btn.disabled = false;
+  btn.textContent = '🗣 発音チェック';
+  document.getElementById('vowelPrompt').style.display = 'none';
+
+  if (vowelFrames.length < 5) {
+    alert('顔がうまく検出できませんでした。明るい場所でもう一度お試しください。');
+    return;
+  }
+
+  // 口を動かしている区間（開口量がある部分）を優先的に分析対象にする
+  const active = vowelFrames.filter(f => f.openPct > 2);
+  const data = active.length >= 5 ? active : vowelFrames;
+
+  const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const cornerAvg = avg(data.map(f => f.cornerDiffNorm));
+  const noseAvg = avg(data.map(f => f.noseAngle));
+  const cheekAvg = avg(data.map(f => f.cheekWidthDiffNorm));
+
+  // しきい値（目安。セルフチェック用の粗い目安であり医学的診断ではありません）
+  const CORNER_TH = 3.0;
+  const NOSE_TH = 1.5;
+  const CHEEK_TH = 4.0;
+
+  let cornerText, noseText, cheekText;
+
+  if (Math.abs(cornerAvg) < CORNER_TH) {
+    cornerText = '左右差は小さく、バランス良く動いています';
+  } else if (cornerAvg > 0) {
+    cornerText = '話すとき、左の口角がやや上がりやすい傾向があります';
+  } else {
+    cornerText = '話すとき、右の口角がやや上がりやすい傾向があります';
+  }
+
+  if (Math.abs(noseAvg) < NOSE_TH) {
+    noseText = '鼻の傾きはほぼ左右対称です';
+  } else if (noseAvg > 0) {
+    noseText = `鼻がやや右に傾く傾向があります（${Math.abs(noseAvg).toFixed(1)}°）`;
+  } else {
+    noseText = `鼻がやや左に傾く傾向があります（${Math.abs(noseAvg).toFixed(1)}°）`;
+  }
+
+  if (Math.abs(cheekAvg) < CHEEK_TH) {
+    cheekText = '頼の左右差は小さいです';
+  } else if (cheekAvg > 0) {
+    cheekText = '発音時、左の頼がやや張り出しやすい傾向があります';
+  } else {
+    cheekText = '発音時、右の頼がやや張り出しやすい傾向があります';
+  }
+
+  document.getElementById('vw-corner').textContent = cornerText;
+  document.getElementById('vw-nose').textContent = noseText;
+  document.getElementById('vw-cheek').textContent = cheekText;
+
+  const flagCount = [
+    Math.abs(cornerAvg) >= CORNER_TH,
+    Math.abs(noseAvg) >= NOSE_TH,
+    Math.abs(cheekAvg) >= CHEEK_TH,
+  ].filter(Boolean).length;
+
+  document.getElementById('vw-comment').textContent =
+    flagCount === 0
+      ? '発音時の癒は目立って現れていません。'
+      : flagCount === 1
+      ? '1つの項目にやや癒が見られます。表情筋の使い方に左右差がある可能性があります。'
+      : '複数の項目に癒が見られます。日常の噴み癒・表情の使い方の左右差が影響している可能性があります。';
+
+  document.getElementById('vowelResultEmpty').style.display = 'none';
+  document.getElementById('vowelResult').style.display = 'block';
+
+  // 発音タブに自動で切り替え
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+  document.querySelector('.panel-tab[data-tab="vowel"]').classList.add('active');
+  document.getElementById('tab-vowel').classList.add('active');
 }
 
 // ===== スロー再生 =====
@@ -1348,6 +1668,7 @@ document.querySelectorAll('.panel-tab').forEach(tab => {
 document.getElementById('btnRec').addEventListener('click', () => {
   recording ? stopRecording() : startRecording();
 });
+document.getElementById('btnVowelCheck').addEventListener('click', startVowelCheck);
 document.getElementById('btnClearTraj').addEventListener('click', () => {
   jawTrail = [];
   smoothBuf.length = 0;
