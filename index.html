@@ -184,6 +184,45 @@ header {
   font-weight: 600;
   cursor: pointer;
 }
+.btn-glasses-yes, .btn-glasses-no {
+  font-size: 18px;
+  padding: 20px;
+  border-radius: 10px;
+}
+.btn-glasses-no { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+
+/* ===== 見やすいモード（メガネを外す方向け・装飾より大きさ優先） ===== */
+body.large-mode .start-check-btn,
+body.large-mode .btn-start {
+  font-size: 22px !important;
+  padding: 24px !important;
+  border-radius: 12px !important;
+}
+body.large-mode .tour-btn,
+body.large-mode .badge,
+body.large-mode .streak-banner,
+body.large-mode .share-btn,
+body.large-mode .mode-bar {
+  display: none !important;
+}
+body.large-mode .panel-tabs { font-size: 16px !important; }
+body.large-mode .panel-tab { padding: 14px 6px !important; }
+body.large-mode .total-score-num { font-size: 46px !important; }
+body.large-mode .overall-summary { font-size: 16px !important; }
+body.large-mode .overall-summary b { font-size: 20px !important; }
+body.large-mode .pc-suggest {
+  display: block !important;
+  background: rgba(var(--accent-rgb),0.15);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.pc-suggest { display: none; }
 
 /* カメラ上オーバーレイUI */
 .cam-overlay {
@@ -495,6 +534,18 @@ header {
 .part-bar { height: 100%; border-radius: 2px; transition: width 0.2s; }
 
 /* 総合スコアメーター */
+.overall-summary {
+  background: rgba(var(--accent-rgb),0.1);
+  border: 1px solid rgba(var(--accent-rgb),0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.overall-summary b { color: var(--accent); font-size: 15px; }
+
 .total-score-wrap {
   background: var(--surface2);
   border-radius: 8px;
@@ -759,9 +810,19 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
     <!-- 起動前 -->
     <div class="start-screen" id="startScreen">
-      <h2>今日の歪み、チェックしてみましょう</h2>
-      <p>カメラで顎の開閉・顔の歪みをリアルタイム計測します。<br>データはすべてこの端末内で処理されます。</p>
-      <button class="btn-start" id="btnStart">カメラを起動する</button>
+      <div id="glassesPrompt">
+        <h2 style="font-size:18px;">メガネを外しますか？</h2>
+        <p style="margin-bottom:24px;">外す方は、ボタンや文字を大きくした<br>見やすい画面に切り替えます。</p>
+        <div style="display:flex; flex-direction:column; gap:12px; max-width:280px; margin:0 auto;">
+          <button class="btn-start btn-glasses-yes" id="btnGlassesYes" style="width:100%;">はい（外します）</button>
+          <button class="btn-start btn-glasses-no" id="btnGlassesNo" style="width:100%;">いいえ（そのまま）</button>
+        </div>
+      </div>
+      <div id="startScreenMain" style="display:none">
+        <h2>今日の歪み、チェックしてみましょう</h2>
+        <p>カメラで顎の開閉・顔の歪みをリアルタイム計測します。<br>データはすべてこの端末内で処理されます。</p>
+        <button class="btn-start" id="btnStart">カメラを起動する</button>
+      </div>
     </div>
 
     <!-- オーバーレイ -->
@@ -790,7 +851,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         letter-spacing:0.05em;
         border:1px solid rgba(125,149,163,0.28);
         pointer-events:none;
-      ">→ 右手側</div>
+      ">← 左手側</div>
       <div id="labelRight" style="
         position:absolute; right:10px; top:50%;
         transform:translateY(-50%);
@@ -801,7 +862,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         letter-spacing:0.05em;
         border:1px solid rgba(125,149,163,0.28);
         pointer-events:none;
-      ">左手側 ←</div>
+      ">右手側 →</div>
 
       <!-- 環境警告 -->
       <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
@@ -883,6 +944,8 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
       <!-- スコアタブ -->
       <div class="panel-section active" id="tab-score">
+        <div class="pc-suggest">📺 結果は、画面の大きいパソコンで確認するとさらに見やすいです。</div>
+        <div class="overall-summary" id="overallSummary" style="display:none"></div>
         <div class="total-score-wrap">
           <div class="total-score-num" id="totalScoreNum">—</div>
           <div class="total-score-right">
@@ -956,6 +1019,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
           画面下の「▶ セルフチェックを始める」の最後に「笑ってください」という案内が出ます。笑顔のときの左右差はここに表示されます。
         </div>
         <div class="vowel-result" id="smileResult" style="display:none">
+          <img class="compare-photo" id="smilePhoto" alt="笑顔の写真" style="max-width:160px;margin-bottom:8px;">
           <div class="vowel-item">
             <div class="vowel-item-label">笑顔の口角の癖</div>
             <div class="vowel-item-val" id="sm-corner">—</div>
@@ -986,10 +1050,16 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
           </div>
         </div>
         <div class="vowel-comment" id="compareComment" style="display:none"></div>
+        <div class="vowel-result-empty" style="margin-top:10px;">
+          💡 写真の顔の大きさをきれいにそろえたい場合は、別ツール「顔サイズそろえツール」もご利用いただけます（任意・使わなくても記録は続けられます）。
+        </div>
       </div>
 
       <!-- 軌跡・再生タブ -->
       <div class="panel-section" id="tab-traj">
+        <div class="vowel-result-empty" style="margin-bottom:8px;">
+          👄 これは「①開口チェック」のときの、顎の動きの記録です。
+        </div>
         <div class="traj-replay-wrap">
           <div class="mini-canvas-wrap">
             <div class="mini-canvas-label">顎の開口軌跡</div>
@@ -1000,7 +1070,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
             </div>
           </div>
           <div class="mini-canvas-wrap">
-            <div class="mini-canvas-label">スロー再生</div>
+            <div class="mini-canvas-label">開口動作のスロー再生</div>
             <canvas class="mini-c" id="replayCanvas" width="140" height="120"></canvas>
             <div class="replay-controls">
               <button class="ctrl-sm" id="btnPlay">▶</button>
@@ -1085,6 +1155,9 @@ let vowelRecording = false;
 let afterVowelCheckCallback = null;
 let smileRecording = false;
 let smileFrames = [];
+let smilePhotoCaptured = null;
+let lastVowelCornerAvg = 0, lastVowelNoseAvg = 0, lastVowelCheekAvg = 0;
+let lastSmileCornerAvg = 0, lastSmileCheekAvg = 0;
 let vowelFrames = [];
 
 // ① 手ブレ平滑化バッファ（直近6フレーム移動平均）
@@ -1238,11 +1311,16 @@ function onResults(results) {
     : Math.abs(deviceTilt || 0) < 15
     ? 'rgba(246,173,85,0.7)'
     : 'rgba(252,129,129,0.7)';
+  const guideFill = Math.abs(deviceTilt || 0) < 5
+    ? 'rgba(104,211,145,0.12)'
+    : Math.abs(deviceTilt || 0) < 15
+    ? 'rgba(246,173,85,0.12)'
+    : 'rgba(252,129,129,0.12)';
+  ctx.fillStyle = guideFill;
+  ctx.fill();
   ctx.strokeStyle = guideColor;
   ctx.lineWidth = 2;
-  ctx.setLineDash([8, 5]);
   ctx.stroke();
-  ctx.setLineDash([]);
   // ガイドラベル
   ctx.fillStyle = guideColor;
   ctx.font = '500 11px sans-serif';
@@ -1833,6 +1911,7 @@ function startSmileStage(onDone) {
   const text = document.getElementById('smileStageText');
   overlay.style.display = 'flex';
   smileFrames = [];
+  smilePhotoCaptured = null;
 
   const seq = ['3', '2', '1', '😊\n笑ってください'];
   let i = 0;
@@ -1840,6 +1919,8 @@ function startSmileStage(onDone) {
     text.textContent = seq[i];
     if (i === seq.length - 1) {
       smileRecording = true;
+      // 笑顔が安定する2秒後に写真を1枚撮影（画面表示はオーバーレイで隠したまま）
+      setTimeout(() => { smilePhotoCaptured = captureSnapshot(); }, 2000);
       // 笑顔を4秒間保持してもらい、その間のフレームを記録
       setTimeout(() => {
         smileRecording = false;
@@ -1859,6 +1940,9 @@ function startSmileStageP() {
 }
 
 function finishSmileCheck() {
+  if (smilePhotoCaptured) {
+    document.getElementById('smilePhoto').src = smilePhotoCaptured;
+  }
   if (smileFrames.length < 5) {
     document.getElementById('sm-comment').textContent = '顔がうまく検出できませんでした。もう一度お試しください。';
     document.getElementById('smileResultEmpty').style.display = 'none';
@@ -1868,6 +1952,8 @@ function finishSmileCheck() {
   const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
   const cornerAvg = avg(smileFrames.map(f => f.cornerDiffNorm));
   const cheekAvg = avg(smileFrames.map(f => f.cheekWidthDiffNorm));
+  lastSmileCornerAvg = cornerAvg;
+  lastSmileCheekAvg = cheekAvg;
 
   const CORNER_TH = 3.0;
   const CHEEK_TH = 4.0;
@@ -2014,6 +2100,30 @@ function renderCompareTab() {
 }
 
 // ===== セルフチェック統合フロー（告知→カウントダウン→①開口→②発音→③笑顔） =====
+// ===== 総合まとめ（3つの検査結果を統合して1つの結論にする） =====
+function renderOverallSummary() {
+  const totalScore = Number(document.getElementById('totalScoreNum').textContent) || 0;
+  const CORNER_TH = 3.0, NOSE_TH = 1.5, CHEEK_TH = 4.0;
+
+  const flags = [];
+  if (totalScore > 0 && totalScore < 70) flags.push({ area: '顎', hint: '普段の噛み合わせや姿勢のクセ' });
+  if (Math.abs(lastVowelCornerAvg) >= CORNER_TH) flags.push({ area: '会話時の口角', hint: '片側だけで話す・笑う癖' });
+  if (Math.abs(lastVowelCheekAvg) >= CHEEK_TH) flags.push({ area: '会話時の頬', hint: '頬づえや片側噛みの癖' });
+  if (Math.abs(lastVowelNoseAvg) >= NOSE_TH) flags.push({ area: '鼻の傾き', hint: '片鼻呼吸などの癖' });
+  if (Math.abs(lastSmileCornerAvg) >= CORNER_TH) flags.push({ area: '笑顔の口角', hint: '表情筋の左右差' });
+  if (Math.abs(lastSmileCheekAvg) >= CHEEK_TH) flags.push({ area: '笑顔の頬', hint: '表情筋の左右差' });
+
+  const el = document.getElementById('overallSummary');
+  if (flags.length === 0) {
+    el.innerHTML = '<b>目立った左右差は見つかりませんでした。</b><br>今の状態を維持していきましょう。';
+  } else {
+    const areaList = flags.map(f => f.area).join('・');
+    const topHint = flags[0].hint;
+    el.innerHTML = `<b>${flags.length}か所</b>に左右差が見られます（${areaList}）。<br>${topHint}が影響している可能性があります。`;
+  }
+  el.style.display = 'block';
+}
+
 async function startGuidedCheck() {
   if (!running) return;
   const btn = document.getElementById('btnStartCheck');
@@ -2041,6 +2151,7 @@ async function startGuidedCheck() {
   saveHistoryRecord(snapshot);
   renderStreakBanner();
   renderCompareTab();
+  renderOverallSummary();
 
   // 結果パネルまで自動スクロールし、一瞬光らせて気づきやすくする
   document.querySelector('.panel-tab[data-tab="score"]').click();
@@ -2100,6 +2211,9 @@ function finishVowelCheck() {
   const cornerAvg = avg(data.map(f => f.cornerDiffNorm));
   const noseAvg = avg(data.map(f => f.noseAngle));
   const cheekAvg = avg(data.map(f => f.cheekWidthDiffNorm));
+  lastVowelCornerAvg = cornerAvg;
+  lastVowelNoseAvg = noseAvg;
+  lastVowelCheekAvg = cheekAvg;
 
   // しきい値（目安。セルフチェック用の粗い目安であり医学的診断ではありません）
   const CORNER_TH = 3.0;
@@ -2248,6 +2362,19 @@ document.getElementById('mainSwitch').addEventListener('click', function() {
 });
 
 // ===== カメラ起動 =====
+document.getElementById('btnGlassesYes').addEventListener('click', () => {
+  document.body.classList.add('large-mode');
+  localStorage.setItem('jawAnalyzerLargeMode', '1');
+  document.getElementById('glassesPrompt').style.display = 'none';
+  document.getElementById('startScreenMain').style.display = 'block';
+});
+document.getElementById('btnGlassesNo').addEventListener('click', () => {
+  document.body.classList.remove('large-mode');
+  localStorage.setItem('jawAnalyzerLargeMode', '0');
+  document.getElementById('glassesPrompt').style.display = 'none';
+  document.getElementById('startScreenMain').style.display = 'block';
+});
+
 document.getElementById('btnStart').addEventListener('click', async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
