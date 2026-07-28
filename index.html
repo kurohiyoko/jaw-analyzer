@@ -6,16 +6,17 @@
 <title>顎運動セルフチェック｜波鍼灸院</title>
 <style>
 :root {
-  --bg: #0a0e14;
-  --surface: #111827;
-  --surface2: #1e2a3a;
-  --border: rgba(99,179,237,0.15);
-  --accent: #63b3ed;
-  --accent2: #68d391;
-  --warn: #f6ad55;
-  --danger: #fc8181;
-  --text: #e2e8f0;
-  --text2: #94a3b8;
+  --bg: #f7f4e9;
+  --surface: #faf8f0;
+  --surface2: #efe6e0;
+  --border: rgba(180,150,145,0.2);
+  --accent: #7d95a3;
+  --accent-rgb: 125,149,163;
+  --accent2: #b3906f;
+  --warn: #c99a63;
+  --danger: #c17f8a;
+  --text: #4a3f3c;
+  --text2: #8c7f79;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -25,7 +26,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 /* ヘッダー */
@@ -47,11 +48,12 @@ header {
 }
 .badge-warn { background: rgba(246,173,85,0.12); color: var(--warn); border: 1px solid rgba(246,173,85,0.3); }
 .badge-ok { background: rgba(104,211,145,0.12); color: var(--accent2); border: 1px solid rgba(104,211,145,0.3); }
+.badge-env { background: rgba(var(--accent-rgb),0.1); color: var(--text2); border: 1px solid var(--border); }
 
 /* 操作ガイドボタン */
 .tour-btn {
-  background: rgba(99,179,237,0.12);
-  border: 1px solid rgba(99,179,237,0.4);
+  background: rgba(var(--accent-rgb), 0.13);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
   color: var(--accent);
   font-size: 11px;
   padding: 5px 10px;
@@ -76,7 +78,7 @@ header {
 }
 .tour-caption {
   position: absolute;
-  background: #1a2030;
+  background: var(--surface2);
   border: 1px solid var(--accent);
   border-radius: 10px;
   padding: 12px 14px;
@@ -85,7 +87,7 @@ header {
   transition: top 0.35s ease, left 0.35s ease;
 }
 .tour-caption-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
-.tour-caption-text { font-size: 12px; color: #e2e8f0; line-height: 1.6; margin-bottom: 10px; }
+.tour-caption-text { font-size: 12px; color: var(--text); line-height: 1.6; margin-bottom: 10px; }
 .tour-caption-foot { display: flex; align-items: center; justify-content: space-between; }
 .tour-dots { display: flex; gap: 5px; }
 .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }
@@ -96,11 +98,11 @@ header {
   padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid var(--border);
   background: transparent;
-  color: #cbd5e0;
+  color: var(--text2);
 }
-.tour-next { background: var(--accent); color: #0a0e14; border-color: var(--accent); font-weight: 700; }
+.tour-next { background: var(--accent); color: #292929; border-color: var(--accent); font-weight: 700; }
 
 /* ON/OFFスイッチ */
 .switch-wrap { display: flex; align-items: center; gap: 6px; }
@@ -134,7 +136,6 @@ header {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   position: relative;
 }
 
@@ -142,9 +143,9 @@ header {
 .camera-wrap {
   position: relative;
   flex: 1;
-  background: #000;
+  min-height: 340px;
+  background: var(--surface2);
   overflow: hidden;
-  min-height: 0;
 }
 #video {
   width: 100%;
@@ -171,12 +172,12 @@ header {
   padding: 30px;
   text-align: center;
 }
-.start-screen h2 { font-size: 20px; font-weight: 500; color: var(--accent); margin-bottom: 10px; }
+.start-screen h2 { font-size: 20px; font-weight: 500; color: var(--accent); opacity: 0.85; margin-bottom: 10px; }
 .start-screen p { font-size: 12px; color: var(--text2); line-height: 1.8; margin-bottom: 20px; }
 .btn-start {
-  background: var(--accent);
-  color: #0a0e14;
-  border: none;
+  background: rgba(var(--accent-rgb), 0.85);
+  border: 1px solid rgba(var(--accent-rgb), 1);
+  color: #fff;
   padding: 12px 36px;
   border-radius: 6px;
   font-size: 15px;
@@ -213,7 +214,7 @@ header {
 .tilt-label {
   font-size: 11px;
   font-weight: 500;
-  background: rgba(10,14,20,0.75);
+  background: rgba(255,255,255,0.88);
   padding: 3px 10px;
   border-radius: 4px;
   border: 1px solid var(--border);
@@ -230,7 +231,7 @@ header {
   gap: 6px;
 }
 .score-chip {
-  background: rgba(10,14,20,0.8);
+  background: rgba(255,255,255,0.88);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 8px;
@@ -247,12 +248,29 @@ header {
   left: 50%;
   transform: translateX(-50%);
   background: rgba(246,173,85,0.9);
-  color: #0a0e14;
+  color: #292929;
   font-size: 11px;
   padding: 5px 14px;
   border-radius: 4px;
   white-space: nowrap;
   display: none;
+}
+
+/* 継続利用バナー */
+.streak-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  white-space: nowrap;
+  display: none;
+  z-index: 20;
 }
 
 /* モード切替 */
@@ -262,7 +280,7 @@ header {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  background: rgba(10,14,20,0.85);
+  background: rgba(255,255,255,0.92);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
@@ -278,7 +296,7 @@ header {
   transition: all 0.2s;
   white-space: nowrap;
 }
-.mode-btn.active { background: var(--accent); color: #0a0e14; font-weight: 600; }
+.mode-btn.active { background: var(--accent); color: #292929; font-weight: 600; }
 
 /* 録画ボタン */
 .rec-btn-wrap {
@@ -292,7 +310,7 @@ header {
   align-items: flex-end;
 }
 .rec-btn {
-  background: rgba(10,14,20,0.85);
+  background: rgba(255,255,255,0.92);
   border: 1px solid var(--danger);
   color: var(--danger);
   padding: 7px 14px;
@@ -313,22 +331,22 @@ header {
   pointer-events: all;
 }
 .start-check-btn {
-  background: var(--accent);
-  color: #0a0e14;
-  border: none;
+  background: rgba(var(--accent-rgb), 0.75);
+  color: #292929;
+  border: 1px solid rgba(var(--accent-rgb), 0.9);
   padding: 12px 26px;
   border-radius: 24px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(99,179,237,0.4);
+  box-shadow: 0 3px 10px rgba(var(--accent-rgb), 0.35);
   white-space: nowrap;
 }
 .start-check-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* 発音チェックボタン（録画ボタンと同系統・色だけ変更） */
 .vowel-btn {
-  background: rgba(10,14,20,0.85);
+  background: rgba(255,255,255,0.92);
   border: 1px solid var(--accent);
   color: var(--accent);
 }
@@ -340,7 +358,7 @@ header {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(10,14,20,0.92);
+  background: rgba(255,255,255,0.96);
   border: 1px solid var(--accent);
   border-radius: 10px;
   padding: 18px 22px;
@@ -361,8 +379,8 @@ header {
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(10,14,20,0.75);
-  color: #fff;
+  background: rgba(255,255,255,0.88);
+  color: var(--text);
   font-size: 18px;
   font-weight: 700;
   text-align: center;
@@ -383,7 +401,7 @@ header {
   justify-content: center;
   width: 110px;
   height: 110px;
-  background: rgba(10,14,20,0.85);
+  background: rgba(255,255,255,0.92);
   border: 2px solid var(--accent);
   border-radius: 14px;
   color: var(--accent);
@@ -399,7 +417,7 @@ header {
   display: none;
   align-items: center;
   justify-content: center;
-  background: #1a2030;
+  background: var(--surface2);
   z-index: 70;
 }
 .smile-stage-text {
@@ -417,6 +435,13 @@ header {
   background: var(--surface);
   border-top: 1px solid var(--border);
   display: none;
+}
+.bottom-panel.highlight {
+  animation: panelPulse 1.4s ease 2;
+}
+@keyframes panelPulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: inset 0 0 0 2px var(--accent), 0 0 16px rgba(var(--accent-rgb), 0.4); }
 }
 
 /* パネルタブ */
@@ -569,11 +594,25 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
   color: var(--text2);
   line-height: 1.7;
   padding: 8px;
-  background: rgba(99,179,237,0.06);
-  border: 1px solid rgba(99,179,237,0.2);
+  background: rgba(var(--accent-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
   border-radius: 5px;
   margin-top: 2px;
 }
+
+/* 比較タブ */
+.compare-wrap { display: flex; gap: 8px; }
+.compare-col { flex: 1; text-align: center; }
+.compare-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+.compare-photo {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  aspect-ratio: 3/4;
+  object-fit: cover;
+}
+.compare-score { font-size: 20px; font-weight: 700; color: var(--accent); margin-top: 4px; }
 
 /* SNSシェア */
 .share-btn {
@@ -588,7 +627,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
   cursor: pointer;
   transition: all 0.2s;
 }
-.share-btn:hover { background: rgba(99,179,237,0.1); }
+.share-btn:hover { background: rgba(var(--accent-rgb), 0.1); }
 
 /* カクつきグラフ */
 .jerk-wrap { background: var(--surface2); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
@@ -622,6 +661,59 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 .danger { color: var(--danger); }
 .neutral { color: var(--accent); }
 </style>
+<script>
+(function() {
+  var today = new Date();
+  var month = today.getMonth() + 1;
+  var date = today.getDate();
+  var root = document.documentElement.style;
+
+  function setPalette(p) {
+    root.setProperty('--bg', p.bg);
+    root.setProperty('--surface', p.surface);
+    root.setProperty('--surface2', p.surface2);
+    root.setProperty('--accent', p.accent);
+    root.setProperty('--accent2', p.accent2);
+    root.setProperty('--accent-rgb', p.accentRgb);
+    root.setProperty('--border', p.border);
+  }
+
+  if (month === 1 && date === 1) {
+    // 元旦限定：お正月カラー
+    setPalette({
+      bg: '#fdf3f0',
+      surface: '#fffaf8',
+      surface2: '#fbe4de',
+      accent: '#c0392b',
+      accent2: '#c9a24a',
+      accentRgb: '192,57,43',
+      border: 'rgba(192,57,43,0.25)'
+    });
+  } else if (month >= 5 && month <= 10) {
+    // 夏（5〜10月）：涼しい配色
+    setPalette({
+      bg: '#eef4f6',
+      surface: '#f5fafb',
+      surface2: '#dde9ec',
+      accent: '#5c8a9e',
+      accent2: '#7fa8a0',
+      accentRgb: '92,138,158',
+      border: 'rgba(92,138,158,0.25)'
+    });
+  } else {
+    // 冬（11〜4月）：温かみのある配色
+    setPalette({
+      bg: '#f7f4e9',
+      surface: '#faf8f0',
+      surface2: '#efe6e0',
+      accent: '#b5876a',
+      accent2: '#b98a92',
+      accentRgb: '181,135,106',
+      border: 'rgba(181,135,106,0.2)'
+    });
+  }
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -639,7 +731,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <span class="switch-label">解析</span>
       <div class="switch on" id="mainSwitch"></div>
     </div>
-    <span class="badge badge-warn" id="envBadge">照明確認中</span>
+    <span class="badge badge-env" id="envBadge">照明確認中</span>
   </div>
 </header>
 
@@ -667,7 +759,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
     <!-- 起動前 -->
     <div class="start-screen" id="startScreen">
-      <h2>顎の動きを解析します</h2>
+      <h2>今日の歪み、チェックしてみましょう</h2>
       <p>カメラで顎の開閉・顔の歪みをリアルタイム計測します。<br>データはすべてこの端末内で処理されます。</p>
       <button class="btn-start" id="btnStart">カメラを起動する</button>
     </div>
@@ -692,27 +784,30 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         position:absolute; left:10px; top:50%;
         transform:translateY(-50%);
         font-size:20px; font-weight:700;
-        color:rgba(99,179,237,0.85);
-        background:rgba(10,14,20,0.6);
+        color:rgba(125,149,163,0.9);
+        background:rgba(255,255,255,0.85);
         padding:6px 10px; border-radius:6px;
         letter-spacing:0.05em;
-        border:1px solid rgba(99,179,237,0.3);
+        border:1px solid rgba(125,149,163,0.28);
         pointer-events:none;
       ">→ 右手側</div>
       <div id="labelRight" style="
         position:absolute; right:10px; top:50%;
         transform:translateY(-50%);
         font-size:20px; font-weight:700;
-        color:rgba(99,179,237,0.85);
-        background:rgba(10,14,20,0.6);
+        color:rgba(125,149,163,0.9);
+        background:rgba(255,255,255,0.85);
         padding:6px 10px; border-radius:6px;
         letter-spacing:0.05em;
-        border:1px solid rgba(99,179,237,0.3);
+        border:1px solid rgba(125,149,163,0.28);
         pointer-events:none;
       ">左手側 ←</div>
 
       <!-- 環境警告 -->
       <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
+
+      <!-- 継続利用バナー（連続記録日数・リマインダー） -->
+      <div class="streak-banner" id="streakBanner"></div>
 
       <!-- 開口チェック案内 -->
       <div class="vowel-prompt" id="jawPrompt">
@@ -780,6 +875,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <button class="panel-tab active" data-tab="score">スコア</button>
       <button class="panel-tab" data-tab="vowel">発音</button>
       <button class="panel-tab" data-tab="smile">笑顔</button>
+      <button class="panel-tab" data-tab="compare">比較</button>
       <button class="panel-tab" data-tab="traj">軌跡・再生</button>
       <button class="panel-tab" data-tab="detail">詳細</button>
     </div>
@@ -870,6 +966,26 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
           </div>
           <div class="vowel-comment" id="sm-comment"></div>
         </div>
+      </div>
+
+      <!-- 比較タブ（初回×最新の記録） -->
+      <div class="panel-section" id="tab-compare">
+        <div class="vowel-result-empty" id="compareEmpty">
+          まだ記録が1件しかありません。日をあけてもう一度チェックすると、初回と最新の変化を比べられます。
+        </div>
+        <div class="compare-wrap" id="compareWrap" style="display:none">
+          <div class="compare-col">
+            <div class="compare-label" id="compareDateFirst">初回</div>
+            <img class="compare-photo" id="comparePhotoFirst" alt="初回の記録">
+            <div class="compare-score" id="compareScoreFirst">—</div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-label" id="compareDateLatest">最新</div>
+            <img class="compare-photo" id="comparePhotoLatest" alt="最新の記録">
+            <div class="compare-score" id="compareScoreLatest">—</div>
+          </div>
+        </div>
+        <div class="vowel-comment" id="compareComment" style="display:none"></div>
       </div>
 
       <!-- 軌跡・再生タブ -->
@@ -1055,16 +1171,13 @@ function checkLighting(imageData) {
     warn.textContent = '⚠ 暗すぎます。明るい場所で撮影してください';
     warn.style.display = 'block';
     badge.textContent = '照明 暗い';
-    badge.className = 'badge badge-warn';
   } else if (avg > 220) {
     warn.textContent = '⚠ 明るすぎます。直射日光を避けてください';
     warn.style.display = 'block';
     badge.textContent = '照明 明るすぎ';
-    badge.className = 'badge badge-warn';
   } else {
     warn.style.display = 'none';
     badge.textContent = '照明 良好';
-    badge.className = 'badge badge-ok';
   }
 }
 
@@ -1427,7 +1540,7 @@ function onResults(results) {
     // 輪郭
     ctx.beginPath();
     ctx.ellipse(jawShiftN * arx * 0.12, 0, arx, ary, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(99,179,237,0.06)';
+    ctx.fillStyle = 'rgba(125,149,163,0.07)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(99,179,237,0.75)';
     ctx.lineWidth = 2.5;
@@ -1601,7 +1714,7 @@ function drawJerk() {
   const bw = w / jerkHistory.length;
   jerkHistory.forEach((v, i) => {
     const bh = (v / max) * h;
-    jkCtx.fillStyle = v > thresh ? 'rgba(252,129,129,0.8)' : 'rgba(99,179,237,0.4)';
+    jkCtx.fillStyle = v > thresh ? 'rgba(252,129,129,0.8)' : 'rgba(125,149,163,0.35)';
     jkCtx.fillRect(i * bw, h - bh, bw - 0.5, bh);
   });
   const jerkCount = jerkHistory.filter(v => v > thresh).length;
@@ -1788,6 +1901,118 @@ function finishSmileCheck() {
   document.getElementById('smileResult').style.display = 'block';
 }
 
+// ===== 継続利用機能（端末内保存の履歴・連続記録・初回×最新比較） =====
+const HISTORY_KEY = 'jawAnalyzerHistory';
+
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveHistoryRecord(photoDataUrl) {
+  const hist = loadHistory();
+  hist.push({
+    date: new Date().toISOString(),
+    totalScore: document.getElementById('totalScoreNum').textContent,
+    openPct: document.getElementById('ov-open').textContent,
+    shift: document.getElementById('ov-shift').textContent,
+    photo: photoDataUrl || null,
+  });
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  } catch (e) {
+    // 容量超過などは記録をスキップ（アプリの動作自体には影響させない）
+  }
+}
+
+// 開口チェック直前に、正面を向いた写真を記録用に1枚保存（実写・鏡像表示に合わせる）
+function captureSnapshot() {
+  try {
+    const w = 240;
+    const h = Math.round((w * video.videoHeight) / video.videoWidth) || 320;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const cctx = c.getContext('2d');
+    cctx.translate(w, 0);
+    cctx.scale(-1, 1);
+    cctx.drawImage(video, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', 0.6);
+  } catch (e) {
+    return null;
+  }
+}
+
+// 継続利用バナー（連続記録日数・前回からの経過日数）
+function renderStreakBanner() {
+  const banner = document.getElementById('streakBanner');
+  const hist = loadHistory();
+
+  if (hist.length === 0) {
+    banner.textContent = '👋 はじめてのチェックです。まずは下のボタンから始めましょう。';
+    banner.style.display = 'block';
+    return;
+  }
+
+  const uniqueDays = new Set(hist.map(h => h.date.slice(0, 10))).size;
+  const last = new Date(hist[hist.length - 1].date);
+  const now = new Date();
+  const diffDays = Math.floor((now - last) / (1000 * 60 * 60 * 24));
+
+  let msg;
+  if (diffDays === 0) {
+    msg = `✅ 本日分は記録済みです（合計${uniqueDays}日分の記録）`;
+  } else if (diffDays === 1) {
+    msg = `📅 前回から1日ぶりです（合計${uniqueDays}日分の記録）`;
+  } else {
+    msg = `📅 前回のチェックから${diffDays}日経っています（合計${uniqueDays}日分の記録）`;
+  }
+  banner.textContent = msg;
+  banner.style.display = 'block';
+}
+
+// 比較タブ（初回×最新）
+function renderCompareTab() {
+  const hist = loadHistory();
+  const empty = document.getElementById('compareEmpty');
+  const wrap = document.getElementById('compareWrap');
+  const comment = document.getElementById('compareComment');
+
+  if (hist.length < 2) {
+    empty.style.display = 'block';
+    wrap.style.display = 'none';
+    comment.style.display = 'none';
+    return;
+  }
+
+  const first = hist[0];
+  const latest = hist[hist.length - 1];
+  const fmt = iso => iso.slice(0, 10).replace(/-/g, '/');
+
+  document.getElementById('compareDateFirst').textContent = `初回（${fmt(first.date)}）`;
+  document.getElementById('compareDateLatest').textContent = `最新（${fmt(latest.date)}）`;
+  if (first.photo) document.getElementById('comparePhotoFirst').src = first.photo;
+  if (latest.photo) document.getElementById('comparePhotoLatest').src = latest.photo;
+  document.getElementById('compareScoreFirst').textContent = first.totalScore;
+  document.getElementById('compareScoreLatest').textContent = latest.totalScore;
+
+  const diff = Number(latest.totalScore) - Number(first.totalScore);
+  comment.textContent = isNaN(diff)
+    ? ''
+    : diff > 0
+    ? `初回から総合スコアが ${diff}点 改善しています。`
+    : diff < 0
+    ? `初回より総合スコアが ${Math.abs(diff)}点 下がっています。焦らず様子を見ていきましょう。`
+    : '初回とスコアはほぼ同じです。';
+  comment.style.display = 'block';
+
+  empty.style.display = 'none';
+  wrap.style.display = 'flex';
+}
+
 // ===== セルフチェック統合フロー（告知→カウントダウン→①開口→②発音→③笑顔） =====
 async function startGuidedCheck() {
   if (!running) return;
@@ -1798,6 +2023,7 @@ async function startGuidedCheck() {
 
   await showAnnounce('初めに　顎の歪みを\nチェックします', 1800);
   await runCountdown();
+  const snapshot = captureSnapshot(); // 開口チェック直前の正面写真を記録用に保存
   await startJawStageP();
 
   await showAnnounce('続いて表情チェックに\n進みます', 1800);
@@ -1810,6 +2036,18 @@ async function startGuidedCheck() {
   setNumericVisible(true);
   btn.disabled = false;
   btn.textContent = '🔄 もう一度チェックする';
+
+  // 履歴に記録し、継続バナー・比較タブを更新
+  saveHistoryRecord(snapshot);
+  renderStreakBanner();
+  renderCompareTab();
+
+  // 結果パネルまで自動スクロールし、一瞬光らせて気づきやすくする
+  document.querySelector('.panel-tab[data-tab="score"]').click();
+  const panel = document.getElementById('bottomPanel');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  panel.classList.add('highlight');
+  setTimeout(() => panel.classList.remove('highlight'), 2800);
 }
 
 // ===== 発音チェック（あ・い・う・え・お） =====
@@ -1950,7 +2188,7 @@ function drawReplayFrame(idx) {
   const sx = w / cW;
   const sy = h / cH;
 
-  rpCtx.fillStyle = '#0a0e14';
+  rpCtx.fillStyle = '#efe6e0';
   rpCtx.fillRect(0, 0, w, h);
 
   // 過去軌跡
@@ -2019,6 +2257,8 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     document.getElementById('camOverlay').style.display = 'block';
     document.getElementById('bottomPanel').style.display = 'block';
     setNumericVisible(false);
+    renderStreakBanner();
+    renderCompareTab();
 
     const mpCam = new Camera(video, {
       onFrame: async () => { await faceMesh.send({ image: video }); },
@@ -2178,7 +2418,7 @@ document.getElementById('btnSaveTraj').addEventListener('click', async () => {
     const shot = await html2canvas(document.body, {
       useCORS: true,
       allowTaint: true,
-      backgroundColor: '#0a0e14',
+      backgroundColor: '#f7f4e9',
       scale: window.devicePixelRatio || 1,
     });
     const a = document.createElement('a');
