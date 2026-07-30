@@ -233,8 +233,21 @@ body.large-mode .pc-suggest {
 }
 
 /* 顔位置ガイド枠 — JSで描画するため非表示 */
-.face-guide { display: none; }
-.face-guide-label { display: none; }
+.face-guide-top-msg {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 15;
+  pointer-events: none;
+}
 
 /* 傾きインジケーター — テキスト表示のみ残す */
 .tilt-indicator {
@@ -484,6 +497,18 @@ body.large-mode .pc-suggest {
 }
 
 /* パネルタブ */
+.back-to-camera-btn {
+  display: block;
+  width: 100%;
+  background: rgba(var(--accent-rgb),0.1);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .panel-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
@@ -583,6 +608,19 @@ body.large-mode .pc-suggest {
   border-radius: 6px;
   padding: 8px;
 }
+.traj-optional {
+  margin-bottom: 8px;
+}
+.traj-optional summary {
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.traj-optional[open] summary { margin-bottom: 8px; }
 .mini-canvas-label { font-size: 10px; color: var(--text2); margin-bottom: 6px; }
 canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; }
 
@@ -804,7 +842,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
 <div class="main">
   <!-- カメラ -->
-  <div class="camera-wrap">
+  <div class="camera-wrap" id="cameraWrap">
     <video id="video" autoplay muted playsinline></video>
     <canvas id="canvas"></canvas>
 
@@ -827,10 +865,8 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
     <!-- オーバーレイ -->
     <div class="cam-overlay" id="camOverlay">
-      <!-- 顔位置ガイド -->
-      <div class="face-guide" id="faceGuide">
-        <span class="face-guide-label" id="faceGuideLabel">顔をここに合わせてください</span>
-      </div>
+      <!-- 顔位置・向きの案内（顔の上ではなく画面最上部に固定表示） -->
+      <div class="face-guide-top-msg" id="faceGuideTopMsg" style="display:none;"></div>
 
       <!-- 傾きインジケーター -->
       <div class="tilt-indicator" id="tiltIndicator">
@@ -932,6 +968,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
   <!-- 下パネル -->
   <div class="bottom-panel" id="bottomPanel">
+    <button class="back-to-camera-btn" id="btnBackToCamera">📷 撮影画面に戻る</button>
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="score">スコア</button>
       <button class="panel-tab" data-tab="vowel">発音</button>
@@ -1060,18 +1097,10 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
         <div class="vowel-result-empty" style="margin-bottom:8px;">
           👄 これは「①開口チェック」のときの、顎の動きの記録です。
         </div>
-        <div class="traj-replay-wrap">
-          <div class="mini-canvas-wrap">
-            <div class="mini-canvas-label">顎の開口軌跡</div>
-            <canvas class="mini-c" id="trajCanvas" width="140" height="120"></canvas>
-            <div style="display:flex;gap:4px;margin-top:4px">
-              <button class="ctrl-sm" id="btnClearTraj">クリア</button>
-              <button class="ctrl-sm" id="btnSaveTraj">保存</button>
-            </div>
-          </div>
+        <div class="traj-replay-wrap" style="grid-template-columns:1fr;">
           <div class="mini-canvas-wrap">
             <div class="mini-canvas-label">開口動作のスロー再生</div>
-            <canvas class="mini-c" id="replayCanvas" width="140" height="120"></canvas>
+            <canvas class="mini-c" id="replayCanvas" width="280" height="200"></canvas>
             <div class="replay-controls">
               <button class="ctrl-sm" id="btnPlay">▶</button>
               <button class="ctrl-sm" id="btnStop">■</button>
@@ -1083,10 +1112,25 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
             </div>
           </div>
         </div>
-        <div class="jerk-wrap">
-          <div class="jerk-label">カクつき検知</div>
-          <canvas id="jerkCanvas" width="300" height="50" style="width:100%;display:block;border-radius:3px"></canvas>
-        </div>
+
+        <details class="traj-optional">
+          <summary>詳しく見る（軌跡グラフ・カクつき検知）</summary>
+          <div class="traj-replay-wrap">
+            <div class="mini-canvas-wrap">
+              <div class="mini-canvas-label">顎の開口軌跡</div>
+              <canvas class="mini-c" id="trajCanvas" width="140" height="120"></canvas>
+              <div style="display:flex;gap:4px;margin-top:4px">
+                <button class="ctrl-sm" id="btnClearTraj">クリア</button>
+                <button class="ctrl-sm" id="btnSaveTraj">保存</button>
+              </div>
+            </div>
+          </div>
+          <div class="jerk-wrap">
+            <div class="jerk-label">カクつき検知</div>
+            <canvas id="jerkCanvas" width="300" height="50" style="width:100%;display:block;border-radius:3px"></canvas>
+          </div>
+        </details>
+
         <div style="font-size:10px;color:var(--text2);text-align:center" id="trajStatus">録画後に再生できます</div>
       </div>
 
@@ -1113,30 +1157,4 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
             <span class="detail-label">眉の高さ差</span>
             <span class="detail-val" id="d-brow">—</span>
           </div>
-          <div class="detail-item">
-            <span class="detail-label">小鼻の左右差</span>
-            <span class="detail-val" id="d-nostril">—</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">頬の左右差</span>
-            <span class="detail-val" id="d-cheek">—</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">スマホ傾き</span>
-            <span class="detail-val" id="d-device">—</span>
-          </div>
-        </div>
-        <div style="font-size:10px;color:var(--text2);line-height:1.7;margin-top:10px;padding:8px;background:rgba(246,173,85,0.06);border:1px solid rgba(246,173,85,0.2);border-radius:5px">
-          このアプリは皮膚・表情の動きを解析するセルフチェックツールです。医療診断・治療の代替にはなりません。顔データはサーバーに送信されません。
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-<script src="script.js"></script>
-</body>
-</html>
+          <div class="detail-
