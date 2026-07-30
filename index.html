@@ -1,56 +1,1213 @@
-# 顎運動セルフチェック｜今後の実装仕様メモ
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>顎運動セルフチェック｜波鍼灸院</title>
+<style>
+:root {
+  --bg: #f7f4e9;
+  --surface: #faf8f0;
+  --surface2: #efe6e0;
+  --border: rgba(180,150,145,0.2);
+  --accent: #7d95a3;
+  --accent-rgb: 125,149,163;
+  --accent2: #b3906f;
+  --warn: #c99a63;
+  --danger: #c17f8a;
+  --text: #4a3f3c;
+  --text2: #8c7f79;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
 
-（コードはまだ書いていません。この内容で固まったら実装に進みます）
+/* ヘッダー */
+header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.logo { font-size: 12px; color: var(--text2); }
+.logo strong { color: var(--accent); font-size: 14px; }
+.header-right { display: flex; gap: 8px; align-items: center; }
+.badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.badge-warn { background: rgba(246,173,85,0.12); color: var(--warn); border: 1px solid rgba(246,173,85,0.3); }
+.badge-ok { background: rgba(104,211,145,0.12); color: var(--accent2); border: 1px solid rgba(104,211,145,0.3); }
+.badge-env { background: rgba(var(--accent-rgb),0.1); color: var(--text2); border: 1px solid var(--border); }
 
----
+/* 操作ガイドボタン */
+.tour-btn {
+  background: rgba(var(--accent-rgb), 0.13);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
-## 1. 顔ガイドの見た目（最終案）
+/* 操作ガイド（ツアー）オーバーレイ */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: none;
+  pointer-events: none;
+}
+.tour-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  transition: clip-path 0.35s ease;
+}
+.tour-caption {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: min(80vw, 300px);
+  pointer-events: all;
+  transition: top 0.35s ease, left 0.35s ease;
+}
+.tour-caption-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.tour-caption-text { font-size: 12px; color: var(--text); line-height: 1.6; margin-bottom: 10px; }
+.tour-caption-foot { display: flex; align-items: center; justify-content: space-between; }
+.tour-dots { display: flex; gap: 5px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); }
+.tour-dot.active { background: var(--accent); }
+.tour-btns { display: flex; gap: 6px; }
+.tour-skip, .tour-next {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+}
+.tour-next { background: var(--accent); color: #292929; border-color: var(--accent); font-weight: 700; }
 
-- 背景：グレーの円（濃すぎない。輪郭線でメリハリをつける）
-- 顔エリア：白い楕円形（丸ではなく卵型）。体・肩の表示は無し
-- 目・鼻・口・輪郭線：固定位置ではなく、実際にMediaPipeが検出した顔の座標に
-  リアルタイムで追従する
-  - 目　：検出した目の高さに合わせて横線が動く
-  - 鼻　：検出した鼻の位置に合わせて縦線が動く
-  - 口元：検出した口の位置に線が来る
-  - 輪郭：検出した顎のラインに沿って追従（開口でブレても、首が傾いても外れない）
-- 警告表示：大きくズレた時だけ、グレーの円全体の色が変化（オレンジ→赤）
-- 明るさ対応：室内・屋外で塗りと輪郭線の濃さを自動調整
-  （既存の照明チェック機能を流用）
+/* ON/OFFスイッチ */
+.switch-wrap { display: flex; align-items: center; gap: 6px; }
+.switch-label { font-size: 11px; color: var(--text2); }
+.switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--surface2);
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.switch.on { background: var(--accent2); }
+.switch::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: left 0.3s;
+}
+.switch.on::after { left: 20px; }
 
-## 2. チェック項目の並び（確定）
+/* メインレイアウト */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
 
-1. 姿勢チェック（肩の高さ左右差・首の傾き。正面のみ、猫背自体は判定しない）
-2. 開口チェック
-3. 発音チェック（あいうえお）
-4. 笑顔チェック
+/* カメラエリア */
+.camera-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: none;
+}
+#canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-## 3. 精度向上まわり
+/* 起動前画面 */
+.start-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  text-align: center;
+}
+.start-screen h2 { font-size: 20px; font-weight: 500; color: var(--accent); opacity: 0.85; margin-bottom: 10px; }
+.start-screen p { font-size: 12px; color: var(--text2); line-height: 1.8; margin-bottom: 20px; }
+.btn-start {
+  background: rgba(var(--accent-rgb), 0.85);
+  border: 1px solid rgba(var(--accent-rgb), 1);
+  color: #fff;
+  padding: 12px 36px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-glasses-yes, .btn-glasses-no {
+  font-size: 18px;
+  padding: 20px;
+  border-radius: 10px;
+}
+.btn-glasses-no { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
 
-| 項目 | 内容 |
-|---|---|
-| 瞬き検知 | 記録用の写真（開口直前・笑顔時）を撮る瞬間、目を閉じていたら自動でタイミングをずらして撮り直す |
-| 虹彩検出 | MediaPipeの虹彩オプションを有効化し、目の高さ左右差の測定精度を上げる |
-| 3D顔向き推定 | 「まっすぐ向く」判定を、今の簡易2D角度から、より正確な向き推定に置き換える |
+/* ===== 見やすいモード（メガネを外す方向け・装飾より大きさ優先） ===== */
+body.large-mode .start-check-btn,
+body.large-mode .btn-start {
+  font-size: 22px !important;
+  padding: 24px !important;
+  border-radius: 12px !important;
+}
+body.large-mode .tour-btn,
+body.large-mode .badge,
+body.large-mode .streak-banner,
+body.large-mode .share-btn,
+body.large-mode .mode-bar {
+  display: none !important;
+}
+body.large-mode .panel-tabs { font-size: 16px !important; }
+body.large-mode .panel-tab { padding: 14px 6px !important; }
+body.large-mode .total-score-num { font-size: 46px !important; }
+body.large-mode .overall-summary { font-size: 16px !important; }
+body.large-mode .overall-summary b { font-size: 20px !important; }
+body.large-mode .pc-suggest {
+  display: block !important;
+  background: rgba(var(--accent-rgb),0.15);
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.pc-suggest { display: none; }
 
-## 4. photo-aligner側
+/* カメラ上オーバーレイUI */
+.cam-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
 
-- 顔の大きさを揃える処理に、任意のチェックボックス「背景を消す（白くする）」を追加
-- チェックを入れた場合のみ、人物以外の背景を白で塗りつぶして出力（部屋が映り込まない）
+/* 顔位置ガイド枠 — JSで描画するため非表示 */
+.face-guide-top-msg {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  z-index: 15;
+  pointer-events: none;
+}
 
----
+/* 傾きインジケーター — テキスト表示のみ残す */
+.tilt-indicator {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.tilt-bar-wrap { display: none; }
+.tilt-bar { display: none; }
+.tilt-label {
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.88);
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
 
-## これまでに実装済みの機能（参考・現状のおさらい）
+/* スコアオーバーレイ（カメラ上） */
+.score-overlay {
+  position: absolute;
+  bottom: 70px;
+  left: 10px;
+  right: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.score-chip {
+  background: rgba(255,255,255,0.88);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+  backdrop-filter: blur(4px);
+}
+.score-chip-label { font-size: 9px; color: var(--text2); margin-bottom: 2px; }
+.score-chip-val { font-size: 16px; font-weight: 500; }
 
-- 起動時の質問：「メガネを外しますか？」→「使い方は初めてですか？」の2段階
-- 「初めて」を選んだ場合、カメラ起動後に操作ガイドが自動再生
-- 撮影画面と結果画面が完全に分離（結果表示中はカメラ映像を非表示）
-- チェック中の「✕ やめる」ボタンで途中中断が可能
-- 左右ラベルは矢印なしの「左手側」「右手側」表記
-- 継続記録（端末内保存）・初回×最新の比較タブ
-- 季節による自動配色切り替え（夏＝涼しい配色／冬＝温かみのある配色／元旦＝特別カラー）
-- 見やすいモード（メガネを外す方向け）
+/* 環境警告 */
+.env-warning {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(246,173,85,0.9);
+  color: #292929;
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: none;
+}
 
----
+/* 継続利用バナー */
+.streak-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  white-space: nowrap;
+  display: none;
+  z-index: 20;
+}
 
-作成日：2026年7月30日
+/* モード切替 */
+.mode-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  pointer-events: all;
+}
+.mode-btn {
+  padding: 7px 14px;
+  font-size: 11px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.mode-btn.active { background: var(--accent); color: #292929; font-weight: 600; }
+
+/* 録画ボタン */
+.rec-btn-wrap {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.rec-btn {
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rec-btn.recording { background: rgba(252,129,129,0.2); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* チェック開始ボタン（統合・シンプル操作） */
+.start-check-wrap {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: all;
+}
+.start-check-btn {
+  background: rgba(var(--accent-rgb), 0.75);
+  color: #292929;
+  border: 1px solid rgba(var(--accent-rgb), 0.9);
+  padding: 12px 26px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(var(--accent-rgb), 0.35);
+  white-space: nowrap;
+}
+.start-check-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* 発音チェックボタン（録画ボタンと同系統・色だけ変更） */
+.vowel-btn {
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+.vowel-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* 発音チェック案内オーバーレイ */
+.vowel-prompt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 18px 22px;
+  text-align: center;
+  display: none;
+  pointer-events: none;
+  width: 78%;
+  max-width: 320px;
+}
+.vowel-prompt-text { font-size: 15px; color: var(--accent); font-weight: 500; margin-bottom: 12px; line-height: 1.6; }
+.vowel-prompt-bar-wrap { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.vowel-prompt-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.1s linear; }
+
+/* チェック中止ボタン */
+.cancel-check-btn {
+  position: absolute;
+  top: 46px;
+  right: 10px;
+  z-index: 60;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ステージ間の告知バナー */
+.stage-announce {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.88);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 30px;
+  line-height: 1.7;
+  z-index: 50;
+  white-space: pre-line;
+}
+
+/* カウントダウン（3・2・1） */
+.countdown-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  height: 110px;
+  background: rgba(255,255,255,0.92);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  color: var(--accent);
+  font-size: 52px;
+  font-weight: 800;
+  z-index: 60;
+}
+
+/* 追加チェック（笑顔）：カメラを隠して背景＋文字のみ */
+.smile-stage-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  z-index: 70;
+}
+.smile-stage-text {
+  color: var(--accent);
+  font-size: 34px;
+  font-weight: 800;
+  text-align: center;
+  padding: 0 20px;
+  white-space: pre-line;
+}
+
+/* 下パネル */
+.bottom-panel {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.bottom-panel.highlight {
+  animation: panelPulse 1.4s ease 2;
+}
+@keyframes panelPulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: inset 0 0 0 2px var(--accent), 0 0 16px rgba(var(--accent-rgb), 0.4); }
+}
+
+/* パネルタブ */
+.back-to-camera-btn {
+  display: block;
+  width: 100%;
+  background: rgba(var(--accent-rgb),0.1);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.panel-tab {
+  flex: 1;
+  padding: 9px 4px;
+  background: transparent;
+  border: none;
+  color: var(--text2);
+  font-size: 11px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel-body {
+  padding: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.panel-section { display: none; }
+.panel-section.active { display: block; }
+
+/* 部位別スコア */
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.part-card {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.part-name { font-size: 10px; color: var(--text2); margin-bottom: 4px; }
+.part-score { font-size: 18px; font-weight: 500; }
+.part-bar-wrap {
+  margin-top: 4px;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.part-bar { height: 100%; border-radius: 2px; transition: width 0.2s; }
+
+/* 総合スコアメーター */
+.overall-summary {
+  background: rgba(var(--accent-rgb),0.1);
+  border: 1px solid rgba(var(--accent-rgb),0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.overall-summary b { color: var(--accent); font-size: 15px; }
+
+.total-score-wrap {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.total-score-num { font-size: 44px; font-weight: 300; letter-spacing: -2px; min-width: 70px; }
+.total-score-right { flex: 1; }
+.total-score-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.meter-wrap {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.meter-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s, background 0.3s;
+}
+.meter-status { font-size: 11px; margin-top: 5px; }
+
+/* 軌跡+スロー再生統合パネル — 縦並び大型表示 */
+.traj-replay-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mini-canvas-wrap {
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 8px;
+}
+.traj-optional {
+  margin-bottom: 8px;
+}
+.traj-optional summary {
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.traj-optional[open] summary { margin-bottom: 8px; }
+.mini-canvas-label { font-size: 10px; color: var(--text2); margin-bottom: 6px; }
+canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; }
+
+.replay-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ctrl-sm {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.ctrl-sm:hover { color: var(--accent); }
+.speed-sel {
+  font-size: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+/* 詳細数値 */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.detail-item {
+  background: var(--surface2);
+  border-radius: 5px;
+  padding: 7px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.detail-label { font-size: 10px; color: var(--text2); }
+.detail-val { font-size: 13px; font-weight: 500; }
+
+/* 発音チェック結果 */
+.vowel-result-empty { font-size: 11px; color: var(--text2); line-height: 1.8; padding: 10px 2px; }
+.vowel-result { display: flex; flex-direction: column; gap: 6px; }
+.vowel-item {
+  background: var(--surface2);
+  border-radius: 5px;
+  padding: 8px 10px;
+}
+.vowel-item-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; }
+.vowel-item-val { font-size: 12px; font-weight: 500; line-height: 1.5; }
+.vowel-comment {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.7;
+  padding: 8px;
+  background: rgba(var(--accent-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 5px;
+  margin-top: 2px;
+}
+
+/* 比較タブ */
+.compare-wrap { display: flex; gap: 8px; }
+.compare-col { flex: 1; text-align: center; }
+.compare-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+.compare-photo {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  aspect-ratio: 3/4;
+  object-fit: cover;
+}
+.compare-score { font-size: 20px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+/* SNSシェア */
+.share-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.share-btn:hover { background: rgba(var(--accent-rgb), 0.1); }
+
+/* カクつきグラフ */
+.jerk-wrap { background: var(--surface2); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+.jerk-label { font-size: 10px; color: var(--text2); margin-bottom: 6px; }
+
+/* ローディング */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 12px; color: var(--text2); }
+
+/* ユーティリティ */
+.good { color: var(--accent2); }
+.warn { color: var(--warn); }
+.danger { color: var(--danger); }
+.neutral { color: var(--accent); }
+</style>
+<script>
+(function() {
+  var today = new Date();
+  var month = today.getMonth() + 1;
+  var date = today.getDate();
+  var root = document.documentElement.style;
+
+  function setPalette(p) {
+    root.setProperty('--bg', p.bg);
+    root.setProperty('--surface', p.surface);
+    root.setProperty('--surface2', p.surface2);
+    root.setProperty('--accent', p.accent);
+    root.setProperty('--accent2', p.accent2);
+    root.setProperty('--accent-rgb', p.accentRgb);
+    root.setProperty('--border', p.border);
+  }
+
+  if (month === 1 && date === 1) {
+    // 元旦限定：お正月カラー
+    setPalette({
+      bg: '#fdf3f0',
+      surface: '#fffaf8',
+      surface2: '#fbe4de',
+      accent: '#c0392b',
+      accent2: '#c9a24a',
+      accentRgb: '192,57,43',
+      border: 'rgba(192,57,43,0.25)'
+    });
+  } else if (month >= 5 && month <= 10) {
+    // 夏（5〜10月）：涼しい配色
+    setPalette({
+      bg: '#eef4f6',
+      surface: '#f5fafb',
+      surface2: '#dde9ec',
+      accent: '#5c8a9e',
+      accent2: '#7fa8a0',
+      accentRgb: '92,138,158',
+      border: 'rgba(92,138,158,0.25)'
+    });
+  } else {
+    // 冬（11〜4月）：温かみのある配色
+    setPalette({
+      bg: '#f7f4e9',
+      surface: '#faf8f0',
+      surface2: '#efe6e0',
+      accent: '#b5876a',
+      accent2: '#b98a92',
+      accentRgb: '181,135,106',
+      border: 'rgba(181,135,106,0.2)'
+    });
+  }
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">MediaPipeを読み込み中...</div>
+</div>
+
+<header>
+  <div class="logo"><strong>顎運動セルフチェック</strong> | 波鍼灸院</div>
+  <div class="header-right">
+    <button class="tour-btn" id="btnTour">操作ガイド</button>
+    <div class="switch-wrap">
+      <span class="switch-label">解析</span>
+      <div class="switch on" id="mainSwitch"></div>
+    </div>
+    <span class="badge badge-env" id="envBadge">照明確認中</span>
+  </div>
+</header>
+
+<!-- 操作ガイド（ツアー） -->
+<div class="tour-overlay" id="tourOverlay">
+  <div class="tour-dim" id="tourDim"></div>
+  <div class="tour-caption" id="tourCaption">
+    <div class="tour-caption-title" id="tourTitle"></div>
+    <div class="tour-caption-text" id="tourText"></div>
+    <div class="tour-caption-foot">
+      <div class="tour-dots" id="tourDots"></div>
+      <div class="tour-btns">
+        <button class="tour-skip" id="tourSkip">スキップ</button>
+        <button class="tour-next" id="tourNext">次へ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- カメラ -->
+  <div class="camera-wrap" id="cameraWrap">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <!-- 起動前 -->
+    <div class="start-screen" id="startScreen">
+      <div id="glassesPrompt">
+        <h2 style="font-size:18px;">メガネを外しますか？</h2>
+        <p style="margin-bottom:24px;">外す方は、ボタンや文字を大きくした<br>見やすい画面に切り替えます。</p>
+        <div style="display:flex; flex-direction:column; gap:12px; max-width:280px; margin:0 auto;">
+          <button class="btn-start btn-glasses-yes" id="btnGlassesYes" style="width:100%;">はい（外します）</button>
+          <button class="btn-start btn-glasses-no" id="btnGlassesNo" style="width:100%;">いいえ（そのまま）</button>
+        </div>
+      </div>
+      <div id="experiencePrompt" style="display:none">
+        <h2 style="font-size:18px;">使い方は初めてですか？</h2>
+        <p style="margin-bottom:24px;">初めての方には、カメラを起動した後に<br>使い方ガイドを自動で表示します。</p>
+        <div style="display:flex; flex-direction:column; gap:12px; max-width:280px; margin:0 auto;">
+          <button class="btn-start btn-glasses-yes" id="btnFirstTimeYes" style="width:100%;">初めて</button>
+          <button class="btn-start btn-glasses-no" id="btnFirstTimeNo" style="width:100%;">使ったことがある</button>
+        </div>
+      </div>
+      <div id="startScreenMain" style="display:none">
+        <h2>今日の歪み、チェックしてみましょう</h2>
+        <p>カメラで顎の開閉・顔の歪みをリアルタイム計測します。<br>データはすべてこの端末内で処理されます。</p>
+        <button class="btn-start" id="btnStart">カメラを起動する</button>
+      </div>
+    </div>
+
+    <!-- オーバーレイ -->
+    <div class="cam-overlay" id="camOverlay">
+      <!-- 顔位置・向きの案内（顔の上ではなく画面最上部に固定表示） -->
+      <div class="face-guide-top-msg" id="faceGuideTopMsg" style="display:none;"></div>
+
+      <!-- 傾きインジケーター -->
+      <div class="tilt-indicator" id="tiltIndicator">
+        <div class="tilt-label" id="tiltLabel">スマホ水平</div>
+        <div class="tilt-bar-wrap">
+          <div class="tilt-bar" id="tiltBar"></div>
+        </div>
+      </div>
+
+      <!-- 左右ラベル（鏡像対応） -->
+      <div id="labelLeft" style="
+        position:absolute; left:10px; top:50%;
+        transform:translateY(-50%);
+        font-size:20px; font-weight:700;
+        color:rgba(125,149,163,0.9);
+        background:rgba(255,255,255,0.85);
+        padding:6px 10px; border-radius:6px;
+        letter-spacing:0.05em;
+        border:1px solid rgba(125,149,163,0.28);
+        pointer-events:none;
+      ">左手側</div>
+      <div id="labelRight" style="
+        position:absolute; right:10px; top:50%;
+        transform:translateY(-50%);
+        font-size:20px; font-weight:700;
+        color:rgba(125,149,163,0.9);
+        background:rgba(255,255,255,0.85);
+        padding:6px 10px; border-radius:6px;
+        letter-spacing:0.05em;
+        border:1px solid rgba(125,149,163,0.28);
+        pointer-events:none;
+      ">右手側</div>
+
+      <!-- 環境警告 -->
+      <div class="env-warning" id="envWarning">⚠ 照明を調整してください</div>
+
+      <!-- 継続利用バナー（連続記録日数・リマインダー） -->
+      <div class="streak-banner" id="streakBanner"></div>
+
+      <!-- 開口チェック案内 -->
+      <div class="vowel-prompt" id="jawPrompt">
+        <div class="vowel-prompt-text"><b>① 開口チェック</b><br>ゆっくり口を大きく<br>開け閉めしてください</div>
+        <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="jawPromptBar"></div></div>
+      </div>
+
+      <!-- 発音チェック案内 -->
+      <div class="vowel-prompt" id="vowelPrompt">
+        <div class="vowel-prompt-text"><b>② 発音チェック</b><br>「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
+        <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="vowelPromptBar"></div></div>
+      </div>
+
+      <!-- ステージ間の告知バナー -->
+      <div class="stage-announce" id="stageAnnounce"></div>
+
+      <!-- チェック中止ボタン -->
+      <button class="cancel-check-btn" id="cancelCheckBtn" style="display:none;">✕ やめる</button>
+
+      <!-- カウントダウン（3・2・1） -->
+      <div class="countdown-box" id="countdownBox"></div>
+
+      <!-- 追加チェック（笑顔）：カメラ映像を隠して背景＋文字のみ表示 -->
+      <div class="smile-stage-overlay" id="smileStageOverlay">
+        <div class="smile-stage-text" id="smileStageText"></div>
+      </div>
+
+      <!-- スコアオーバーレイ -->
+      <div class="score-overlay" id="scoreOverlay">
+        <div class="score-chip">
+          <div class="score-chip-label">開口量</div>
+          <div class="score-chip-val neutral" id="ov-open">—</div>
+        </div>
+        <div class="score-chip">
+          <div class="score-chip-label">横ズレ</div>
+          <div class="score-chip-val" id="ov-shift">—</div>
+        </div>
+        <div class="score-chip">
+          <div class="score-chip-label">総合</div>
+          <div class="score-chip-val" id="ov-total">—</div>
+        </div>
+      </div>
+
+      <!-- モード切替 -->
+      <div class="mode-bar" id="modeBar">
+        <button class="mode-btn active" data-mode="skeleton">骨格</button>
+        <button class="mode-btn" data-mode="muscle">筋肉</button>
+        <button class="mode-btn" data-mode="combined">複合</button>
+        <button class="mode-btn" data-mode="avatar">🎭アバター</button>
+      </div>
+
+      <!-- 録画（内部処理用・非表示） -->
+      <div class="rec-btn-wrap" style="display:none;">
+        <button class="rec-btn vowel-btn" id="btnVowelCheck">🗣 発音チェック</button>
+        <button class="rec-btn" id="btnRec">● 録画</button>
+      </div>
+
+      <!-- チェック開始ボタン（統合） -->
+      <div class="start-check-wrap">
+        <button class="start-check-btn" id="btnStartCheck">▶ セルフチェックを始める</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下パネル -->
+  <div class="bottom-panel" id="bottomPanel">
+    <button class="back-to-camera-btn" id="btnBackToCamera">📷 撮影画面に戻る</button>
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-tab="score">スコア</button>
+      <button class="panel-tab" data-tab="vowel">発音</button>
+      <button class="panel-tab" data-tab="smile">笑顔</button>
+      <button class="panel-tab" data-tab="compare">比較</button>
+      <button class="panel-tab" data-tab="traj">軌跡・再生</button>
+      <button class="panel-tab" data-tab="detail">詳細</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- スコアタブ -->
+      <div class="panel-section active" id="tab-score">
+        <div class="pc-suggest">📺 結果は、画面の大きいパソコンで確認するとさらに見やすいです。</div>
+        <div class="overall-summary" id="overallSummary" style="display:none"></div>
+        <div class="total-score-wrap">
+          <div class="total-score-num" id="totalScoreNum">—</div>
+          <div class="total-score-right">
+            <div class="total-score-label">顔の左右均衡スコア</div>
+            <div class="meter-wrap">
+              <div class="meter-bar" id="meterBar" style="width:0%"></div>
+            </div>
+            <div class="meter-status" id="meterStatus">計測待ち</div>
+          </div>
+        </div>
+        <div class="parts-grid">
+          <div class="part-card">
+            <div class="part-name">目</div>
+            <div class="part-score" id="ps-eye">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-eye" style="width:0%"></div></div>
+          </div>
+          <div class="part-card">
+            <div class="part-name">眉</div>
+            <div class="part-score" id="ps-brow">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-brow" style="width:0%"></div></div>
+          </div>
+          <div class="part-card">
+            <div class="part-name">頬</div>
+            <div class="part-score" id="ps-cheek">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-cheek" style="width:0%"></div></div>
+          </div>
+          <div class="part-card">
+            <div class="part-name">小鼻</div>
+            <div class="part-score" id="ps-nose">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-nose" style="width:0%"></div></div>
+          </div>
+          <div class="part-card">
+            <div class="part-name">口元</div>
+            <div class="part-score" id="ps-mouth">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-mouth" style="width:0%"></div></div>
+          </div>
+          <div class="part-card">
+            <div class="part-name">輪郭</div>
+            <div class="part-score" id="ps-jaw">—</div>
+            <div class="part-bar-wrap"><div class="part-bar" id="pb-jaw" style="width:0%"></div></div>
+          </div>
+        </div>
+        <button class="share-btn" id="shareBtn">📤 結果をSNSでシェア（リンクのみ）</button>
+      </div>
+
+      <!-- 発音チェックタブ（あ・い・う・え・お） -->
+      <div class="panel-section" id="tab-vowel">
+        <div class="vowel-result-empty" id="vowelResultEmpty">
+          画面下の「▶ セルフチェックを始める」から、案内に従って発音すると結果が表示されます。
+        </div>
+        <div class="vowel-result" id="vowelResult" style="display:none">
+          <div class="vowel-item">
+            <div class="vowel-item-label">口角の癖</div>
+            <div class="vowel-item-val" id="vw-corner">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">鼻の傾き</div>
+            <div class="vowel-item-val" id="vw-nose">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">頬の左右差</div>
+            <div class="vowel-item-val" id="vw-cheek">—</div>
+          </div>
+          <div class="vowel-comment" id="vw-comment"></div>
+        </div>
+      </div>
+
+      <!-- 笑顔チェックタブ（追加チェック） -->
+      <div class="panel-section" id="tab-smile">
+        <div class="vowel-result-empty" id="smileResultEmpty">
+          画面下の「▶ セルフチェックを始める」の最後に「笑ってください」という案内が出ます。笑顔のときの左右差はここに表示されます。
+        </div>
+        <div class="vowel-result" id="smileResult" style="display:none">
+          <img class="compare-photo" id="smilePhoto" alt="笑顔の写真" style="max-width:160px;margin-bottom:8px;">
+          <div class="vowel-item">
+            <div class="vowel-item-label">笑顔の口角の癖</div>
+            <div class="vowel-item-val" id="sm-corner">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">笑顔時の頬の左右差</div>
+            <div class="vowel-item-val" id="sm-cheek">—</div>
+          </div>
+          <div class="vowel-comment" id="sm-comment"></div>
+        </div>
+      </div>
+
+      <!-- 比較タブ（初回×最新の記録） -->
+      <div class="panel-section" id="tab-compare">
+        <div class="vowel-result-empty" id="compareEmpty">
+          まだ記録が1件しかありません。日をあけてもう一度チェックすると、初回と最新の変化を比べられます。
+        </div>
+        <div class="compare-wrap" id="compareWrap" style="display:none">
+          <div class="compare-col">
+            <div class="compare-label" id="compareDateFirst">初回</div>
+            <img class="compare-photo" id="comparePhotoFirst" alt="初回の記録">
+            <div class="compare-score" id="compareScoreFirst">—</div>
+          </div>
+          <div class="compare-col">
+            <div class="compare-label" id="compareDateLatest">最新</div>
+            <img class="compare-photo" id="comparePhotoLatest" alt="最新の記録">
+            <div class="compare-score" id="compareScoreLatest">—</div>
+          </div>
+        </div>
+        <div class="vowel-comment" id="compareComment" style="display:none"></div>
+        <div class="vowel-result-empty" style="margin-top:10px;">
+          💡 写真の顔の大きさをきれいにそろえたい場合は、別ツール「顔サイズそろえツール」もご利用いただけます（任意・使わなくても記録は続けられます）。
+        </div>
+      </div>
+
+      <!-- 軌跡・再生タブ -->
+      <div class="panel-section" id="tab-traj">
+        <div class="vowel-result-empty" style="margin-bottom:8px;">
+          👄 これは「①開口チェック」のときの、顎の動きの記録です。
+        </div>
+        <div class="traj-replay-wrap" style="grid-template-columns:1fr;">
+          <div class="mini-canvas-wrap">
+            <div class="mini-canvas-label">開口動作のスロー再生</div>
+            <canvas class="mini-c" id="replayCanvas" width="280" height="200"></canvas>
+            <div class="replay-controls">
+              <button class="ctrl-sm" id="btnPlay">▶</button>
+              <button class="ctrl-sm" id="btnStop">■</button>
+              <select class="speed-sel" id="speedSel">
+                <option value="0.25">0.25×</option>
+                <option value="0.5">0.5×</option>
+                <option value="1">1×</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <details class="traj-optional">
+          <summary>詳しく見る（軌跡グラフ・カクつき検知）</summary>
+          <div class="traj-replay-wrap">
+            <div class="mini-canvas-wrap">
+              <div class="mini-canvas-label">顎の開口軌跡</div>
+              <canvas class="mini-c" id="trajCanvas" width="140" height="120"></canvas>
+              <div style="display:flex;gap:4px;margin-top:4px">
+                <button class="ctrl-sm" id="btnClearTraj">クリア</button>
+                <button class="ctrl-sm" id="btnSaveTraj">保存</button>
+              </div>
+            </div>
+          </div>
+          <div class="jerk-wrap">
+            <div class="jerk-label">カクつき検知</div>
+            <canvas id="jerkCanvas" width="300" height="50" style="width:100%;display:block;border-radius:3px"></canvas>
+          </div>
+        </details>
+
+        <div style="font-size:10px;color:var(--text2);text-align:center" id="trajStatus">録画後に再生できます</div>
+      </div>
+
+      <!-- 詳細タブ -->
+      <div class="panel-section" id="tab-detail">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">開口量</span>
+            <span class="detail-val" id="d-open">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">顎横ズレ</span>
+            <span class="detail-val" id="d-shift">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">口角高さ差</span>
+            <span class="detail-val" id="d-corner">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">目の傾き</span>
+            <span class="detail-val" id="d-eyetilt">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">眉の高さ差</span>
+            <span class="detail-val" id="d-brow">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">小鼻の左右差</span>
+            <span class="detail-val" id="d-nostril">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">頬の左右差</span>
+            <span class="detail-val" id="d-cheek">—</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">スマホ傾き</span>
+            <span class="detail-val" id="d-device">—</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.7;margin-top:10px;padding:8px;background:rgba(246,173,85,0.06);border:1px solid rgba(246,173,85,0.2);border-radius:5px">
+          このアプリは皮膚・表情の動きを解析するセルフチェックツールです。医療診断・治療の代替にはなりません。顔データはサーバーに送信されません。
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="script.js?v=2"></script>
+</body>
+</html>
