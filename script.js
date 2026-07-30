@@ -158,13 +158,13 @@ function onResults(results) {
   // === カメラの実写映像はそのまま見せる（canvasは透明にしてvideoを透過）===
   ctx.clearRect(0, 0, W, H);
 
-  // === 顔位置ガイド（グレーの円＋白い楕円形の顔エリア＋鼻・口ライン）===
+  // === 顔位置ガイド（グレーの円。サイズは少し大きめに）===
   const tiltRad = (deviceTilt || 0) * Math.PI / 180;
   const cx = W / 2;
   const cy = H * 0.40;
-  const frameR = Math.min(W * 0.30, H * 0.22);
-  const faceRx = frameR * 0.52;
-  const faceRy = frameR * 0.68;
+  const frameR = Math.min(W * 0.38, H * 0.30); // サイズが小さすぎた点を修正し拡大
+  const faceRx = frameR * 0.56;
+  const faceRy = frameR * 0.72;
   const guideColor = Math.abs(deviceTilt || 0) < 5
     ? 'rgba(150,150,145,0.9)'   // 通常時はグレー（主張しすぎない）
     : Math.abs(deviceTilt || 0) < 15
@@ -189,25 +189,25 @@ function onResults(results) {
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // 白い楕円形（顔エリア・体は無し）
-  ctx.beginPath();
-  ctx.ellipse(0, 0, faceRx, faceRy, 0, 0, Math.PI * 2);
-  ctx.fillStyle = '#f6f0e8';
-  ctx.fill();
-
-  // 鼻ライン・口ラインの目安（薄い横線）
-  const noseY = -faceRy * 0.05;
-  const mouthY = faceRy * 0.35;
-  ctx.strokeStyle = guideColor;
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 3]);
-  [noseY, mouthY].forEach(y => {
+  // 顔がまだ検出されていない時だけ、白い楕円形の見本を表示（位置の目安）
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
     ctx.beginPath();
-    ctx.moveTo(-faceRx * 0.55, y);
-    ctx.lineTo(faceRx * 0.55, y);
-    ctx.stroke();
-  });
-  ctx.setLineDash([]);
+    ctx.ellipse(0, 0, faceRx, faceRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#f6f0e8';
+    ctx.fill();
+    const noseY = -faceRy * 0.05;
+    const mouthY = faceRy * 0.35;
+    ctx.strokeStyle = guideColor;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    [noseY, mouthY].forEach(y => {
+      ctx.beginPath();
+      ctx.moveTo(-faceRx * 0.55, y);
+      ctx.lineTo(faceRx * 0.55, y);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
 
   ctx.restore();
 
@@ -244,9 +244,6 @@ function onResults(results) {
   }
 
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-    guideMsgEl.textContent = '👤 グレーの人型に顔を合わせてください';
-    guideMsgEl.style.display = 'block';
-    guideMsgEl.style.color = 'var(--text2)';
     return;
   }
 
@@ -268,6 +265,42 @@ function onResults(results) {
   const nostR = px(lm[LM.NOSTRIL_R]);
   const cheekL = px(lm[LM.CHEEK_L]);
   const cheekR = px(lm[LM.CHEEK_R]);
+
+  // === 実際に検出した位置に連動する目・鼻・口・輪郭のガイド線（常時表示） ===
+  {
+    const eyeLineY = (eyeL.y + eyeR.y) / 2;
+    const mouthLineY = (mL.y + mR.y) / 2;
+    const trackColor = 'rgba(120,150,150,0.9)';
+    ctx.strokeStyle = trackColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    // 目のライン（横）
+    ctx.beginPath();
+    ctx.moveTo(eyeL.x - 24, eyeLineY);
+    ctx.lineTo(eyeR.x + 24, eyeLineY);
+    ctx.stroke();
+    // 鼻のライン（縦）
+    ctx.beginPath();
+    ctx.moveTo(nose.x, eyeLineY - 14);
+    ctx.lineTo(nose.x, mouthLineY + 14);
+    ctx.stroke();
+    // 口元のライン（横）
+    ctx.beginPath();
+    ctx.moveTo(mL.x - 12, mouthLineY);
+    ctx.lineTo(mR.x + 12, mouthLineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 輪郭（顔の実際の大きさに合わせた楕円）
+    const eyeDistPx = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
+    const contourRx = eyeDistPx * 1.35;
+    const contourRy = eyeDistPx * 1.85;
+    const contourCy = (eyeLineY + jaw.y) / 2;
+    ctx.beginPath();
+    ctx.ellipse(nose.x, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = trackColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
   const forehead = px(lm[LM.FOREHEAD]);
   const eyeLT = px(lm[LM.EYE_L_TOP]);
   const eyeLB = px(lm[LM.EYE_L_BOT]);
