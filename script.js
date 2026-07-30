@@ -9,6 +9,7 @@ let recording = false;
 let recordedFrames = [];
 let replayTimer = null;
 let deviceTilt = 0;
+let checkInProgress = false; // ガイド中は常時案内を隠す（チェック側の案内に任せる）
 
 // 発音チェック（あ・い・う・え・お）用状態
 let vowelRecording = false;
@@ -63,9 +64,11 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// ===== スマホ傾き検知 =====
+// ===== スマホ傾き検知（左右=gamma、前後=beta の両方） =====
+let deviceBeta = 90; // 90=垂直に立てた状態が基準
 window.addEventListener('deviceorientation', (e) => {
   deviceTilt = e.gamma || 0; // 左右傾き
+  if (typeof e.beta === 'number') deviceBeta = e.beta; // 前後傾き
   const tiltAbs = Math.abs(deviceTilt);
   const bar = document.getElementById('tiltBar');
   const label = document.getElementById('tiltLabel');
@@ -155,38 +158,78 @@ function onResults(results) {
   // === カメラの実写映像はそのまま見せる（canvasは透明にしてvideoを透過）===
   ctx.clearRect(0, 0, W, H);
 
-  // === 顔位置ガイド楕円（スマホ傾きで傾く）===
+  // === 顔位置ガイド（グレーの円＋白い楕円形の顔エリア＋鼻・口ライン）===
   const tiltRad = (deviceTilt || 0) * Math.PI / 180;
   const cx = W / 2;
-  const cy = H * 0.42;
-  const rx = W * 0.27;
-  const ry = H * 0.36;
+  const cy = H * 0.40;
+  const frameR = Math.min(W * 0.30, H * 0.22);
+  const faceRx = frameR * 0.52;
+  const faceRy = frameR * 0.68;
+  const guideColor = Math.abs(deviceTilt || 0) < 5
+    ? 'rgba(150,150,145,0.9)'   // 通常時はグレー（主張しすぎない）
+    : Math.abs(deviceTilt || 0) < 15
+    ? 'rgba(246,173,85,0.9)'
+    : 'rgba(252,129,129,0.9)';
+  const frameFill = Math.abs(deviceTilt || 0) < 5
+    ? 'rgba(150,150,145,0.75)'
+    : Math.abs(deviceTilt || 0) < 15
+    ? 'rgba(246,173,85,0.6)'
+    : 'rgba(252,129,129,0.6)';
+
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(tiltRad);
+
+  // グレーの円（背景）
   ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  const guideColor = Math.abs(deviceTilt || 0) < 5
-    ? 'rgba(104,211,145,0.7)'
-    : Math.abs(deviceTilt || 0) < 15
-    ? 'rgba(246,173,85,0.7)'
-    : 'rgba(252,129,129,0.7)';
-  const guideFill = Math.abs(deviceTilt || 0) < 5
-    ? 'rgba(104,211,145,0.12)'
-    : Math.abs(deviceTilt || 0) < 15
-    ? 'rgba(246,173,85,0.12)'
-    : 'rgba(252,129,129,0.12)';
-  ctx.fillStyle = guideFill;
+  ctx.arc(0, 0, frameR, 0, Math.PI * 2);
+  ctx.fillStyle = frameFill;
   ctx.fill();
   ctx.strokeStyle = guideColor;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
-  // ガイドラベル
-  ctx.fillStyle = guideColor;
-  ctx.font = '500 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('顔をここに合わせてください', 0, ry + 18);
+
+  // 白い楕円形（顔エリア・体は無し）
+  ctx.beginPath();
+  ctx.ellipse(0, 0, faceRx, faceRy, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#f6f0e8';
+  ctx.fill();
+
+  // 鼻ライン・口ラインの目安（薄い横線）
+  const noseY = -faceRy * 0.05;
+  const mouthY = faceRy * 0.35;
+  ctx.strokeStyle = guideColor;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  [noseY, mouthY].forEach(y => {
+    ctx.beginPath();
+    ctx.moveTo(-faceRx * 0.55, y);
+    ctx.lineTo(faceRx * 0.55, y);
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
   ctx.restore();
+
+  // ガイド文言は顔の上ではなく画面上部の固定バナーに表示（顔に文字を重ねない）
+  const guideMsgEl = document.getElementById('faceGuideTopMsg');
+  const betaDiff = deviceBeta - 90; // 90°=スマホを垂直に立てた状態が基準
+  if (Math.abs(deviceTilt || 0) >= 5) {
+    guideMsgEl.textContent = Math.abs(deviceTilt) < 15 ? '📱 スマホをまっすぐ持ってください（左右）' : '📱 スマホがかなり傾いています（左右）';
+    guideMsgEl.style.display = 'block';
+    guideMsgEl.style.color = Math.abs(deviceTilt) < 15 ? 'var(--warn)' : 'var(--danger)';
+  } else if (Math.abs(betaDiff) >= 12) {
+    guideMsgEl.textContent = betaDiff > 0 ? '📱 スマホの上を少し起こしてください（前後）' : '📱 スマホの上を少し倒してください（前後）';
+    guideMsgEl.style.display = 'block';
+    guideMsgEl.style.color = Math.abs(betaDiff) < 25 ? 'var(--warn)' : 'var(--danger)';
+  } else if (!checkInProgress) {
+    // 傾きに問題が無ければ、通常時は常に位置合わせの案内を出しておく（初めての人向け）
+    guideMsgEl.textContent = '👤 グレーの丸に、鼻と口を合わせてください';
+    guideMsgEl.style.display = 'block';
+    guideMsgEl.style.color = 'var(--text2)';
+  } else {
+    guideMsgEl.style.display = 'none';
+  }
 
   // 照明チェック（30フレームに1回）
   lightCheckCounter++;
@@ -201,7 +244,9 @@ function onResults(results) {
   }
 
   if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-    document.getElementById('faceGuideLabel').textContent = '顔が検出されません';
+    guideMsgEl.textContent = '👤 グレーの人型に顔を合わせてください';
+    guideMsgEl.style.display = 'block';
+    guideMsgEl.style.color = 'var(--text2)';
     return;
   }
 
@@ -287,15 +332,16 @@ function onResults(results) {
 
   const totalScore = Math.round((eyeScore + browScore + cheekScore + noseScore + mouthScore + jawScore) / 6);
 
-  // 顔向きガイド更新
+  // 顔向きガイド更新（顔の上ではなく画面上部の固定バナーに表示）
   const faceAngleY = Math.atan2(jaw.y - forehead.y, jaw.x - forehead.x) * 180 / Math.PI;
-  const label = document.getElementById('faceGuideLabel');
-  if (Math.abs(faceAngleY - 90) > 15) {
-    label.textContent = faceAngleY < 90 ? '▼ 少し下を向いてください' : '▲ 少し上を向いてください';
-    label.style.color = '#f6ad55';
-  } else {
-    label.textContent = '✓ 位置良好';
-    label.style.color = '#68d391';
+  if (Math.abs(deviceTilt || 0) < 5) {
+    if (Math.abs(faceAngleY - 90) > 15) {
+      guideMsgEl.textContent = faceAngleY < 90 ? '▼ 少し下を向いてください' : '▲ 少し上を向いてください';
+      guideMsgEl.style.color = 'var(--warn)';
+      guideMsgEl.style.display = 'block';
+    } else {
+      guideMsgEl.style.display = 'none';
+    }
   }
 
   // ① スムージング適用
@@ -713,6 +759,17 @@ function setNumericVisible(visible) {
   document.getElementById('modeBar').style.display = visible ? '' : 'none';
 }
 
+// ===== 撮影画面 ⇔ 結果画面の完全切り替え（同時に両方は見せない） =====
+function showResultsScreen() {
+  document.getElementById('cameraWrap').style.display = 'none';
+  document.getElementById('bottomPanel').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function showCaptureScreen() {
+  document.getElementById('cameraWrap').style.display = '';
+  document.getElementById('bottomPanel').style.display = 'none';
+}
+
 // ===== 汎用ヘルパー =====
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -760,6 +817,7 @@ function startJawStageP() {
 }
 function startVowelCheckP() {
   return new Promise(resolve => {
+    if (vowelRecording || !running) { resolve(); return; } // ガードで開始できない場合も必ず先に進める
     afterVowelCheckCallback = resolve;
     startVowelCheck();
   });
@@ -984,25 +1042,68 @@ function renderOverallSummary() {
   el.style.display = 'block';
 }
 
+let checkAbort = false;
+
+function abortGuidedCheck() {
+  checkAbort = true;
+  recording = false;
+  vowelRecording = false;
+  smileRecording = false;
+  checkInProgress = false;
+  document.getElementById('stageAnnounce').style.display = 'none';
+  document.getElementById('countdownBox').style.display = 'none';
+  document.getElementById('jawPrompt').style.display = 'none';
+  document.getElementById('vowelPrompt').style.display = 'none';
+  document.getElementById('smileStageOverlay').style.display = 'none';
+  document.getElementById('cancelCheckBtn').style.display = 'none';
+  setNumericVisible(false);
+  const btn = document.getElementById('btnStartCheck');
+  btn.disabled = false;
+  btn.textContent = '▶ セルフチェックを始める';
+}
+
+// 安全装置：万が一ステージが完了しなくても、一定時間で必ず次に進む
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(resolve, ms)),
+  ]);
+}
+
 async function startGuidedCheck() {
   if (!running) return;
+  checkAbort = false;
+  checkInProgress = true;
   const btn = document.getElementById('btnStartCheck');
   btn.disabled = true;
   btn.textContent = 'チェック中...';
   setNumericVisible(false);
+  document.getElementById('cancelCheckBtn').style.display = 'block';
 
+  await showAnnounce('グレーの丸に鼻と口を合わせ、\nスマホを動かさずに\nそのまま持っていてください', 2600);
+  if (checkAbort) return;
   await showAnnounce('初めに　顎の歪みを\nチェックします', 1800);
+  if (checkAbort) return;
   await runCountdown();
+  if (checkAbort) return;
   const snapshot = captureSnapshot(); // 開口チェック直前の正面写真を記録用に保存
-  await startJawStageP();
+  await withTimeout(startJawStageP(), 8000);
+  if (checkAbort) return;
 
   await showAnnounce('続いて表情チェックに\n進みます', 1800);
+  if (checkAbort) return;
   await runCountdown();
-  await startVowelCheckP();
+  if (checkAbort) return;
+  await withTimeout(startVowelCheckP(), 7000);
+  if (checkAbort) return;
 
   await showAnnounce('続いて追加チェックです', 1500);
-  await startSmileStageP();
+  if (checkAbort) return;
+  await withTimeout(startSmileStageP(), 7000);
+  if (checkAbort) return;
 
+  checkInProgress = false;
+  document.getElementById('cancelCheckBtn').style.display = 'none';
   setNumericVisible(true);
   btn.disabled = false;
   btn.textContent = '🔄 もう一度チェックする';
@@ -1013,10 +1114,10 @@ async function startGuidedCheck() {
   renderCompareTab();
   renderOverallSummary();
 
-  // 結果パネルまで自動スクロールし、一瞬光らせて気づきやすくする
+  // 撮影画面から結果画面へ切り替え（同時に両方は表示しない）
   document.querySelector('.panel-tab[data-tab="score"]').click();
+  showResultsScreen();
   const panel = document.getElementById('bottomPanel');
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   panel.classList.add('highlight');
   setTimeout(() => panel.classList.remove('highlight'), 2800);
 }
@@ -1222,16 +1323,28 @@ document.getElementById('mainSwitch').addEventListener('click', function() {
 });
 
 // ===== カメラ起動 =====
+let isFirstTimeUser = false;
+
 document.getElementById('btnGlassesYes').addEventListener('click', () => {
   document.body.classList.add('large-mode');
   localStorage.setItem('jawAnalyzerLargeMode', '1');
   document.getElementById('glassesPrompt').style.display = 'none';
-  document.getElementById('startScreenMain').style.display = 'block';
+  document.getElementById('experiencePrompt').style.display = 'block';
 });
 document.getElementById('btnGlassesNo').addEventListener('click', () => {
   document.body.classList.remove('large-mode');
   localStorage.setItem('jawAnalyzerLargeMode', '0');
   document.getElementById('glassesPrompt').style.display = 'none';
+  document.getElementById('experiencePrompt').style.display = 'block';
+});
+document.getElementById('btnFirstTimeYes').addEventListener('click', () => {
+  isFirstTimeUser = true;
+  document.getElementById('experiencePrompt').style.display = 'none';
+  document.getElementById('startScreenMain').style.display = 'block';
+});
+document.getElementById('btnFirstTimeNo').addEventListener('click', () => {
+  isFirstTimeUser = false;
+  document.getElementById('experiencePrompt').style.display = 'none';
   document.getElementById('startScreenMain').style.display = 'block';
 });
 
@@ -1242,7 +1355,7 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     video.style.display = 'block';
     document.getElementById('startScreen').style.display = 'none';
     document.getElementById('camOverlay').style.display = 'block';
-    document.getElementById('bottomPanel').style.display = 'block';
+    document.getElementById('bottomPanel').style.display = 'none';
     setNumericVisible(false);
     renderStreakBanner();
     renderCompareTab();
@@ -1254,8 +1367,8 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     mpCam.start();
     running = true;
 
-    // 初回のみ、少し待ってから操作ガイドを自動再生
-    if (!localStorage.getItem('jawAnalyzerTourSeen')) {
+    // 「初めて」と答えた方には、少し待ってから使い方ガイドを自動再生
+    if (isFirstTimeUser) {
       setTimeout(() => tourStart(), 1800);
     }
   } catch(e) {
@@ -1289,23 +1402,30 @@ document.getElementById('btnRec').addEventListener('click', () => {
 });
 document.getElementById('btnVowelCheck').addEventListener('click', startVowelCheck);
 document.getElementById('btnStartCheck').addEventListener('click', startGuidedCheck);
+document.getElementById('cancelCheckBtn').addEventListener('click', abortGuidedCheck);
+document.getElementById('btnBackToCamera').addEventListener('click', showCaptureScreen);
 
 // ===== 操作ガイド（ツアー） =====
 const tourSteps = [
   {
     selector: '.camera-wrap',
     title: 'ここに顔を合わせる',
-    text: '点線の枠の中に顔を入れてください。',
+    text: '白い丸の中に、鼻・口のラインを目安に顔を合わせてください。',
   },
   {
     selector: '#btnStartCheck',
     title: 'ここを押すとチェック開始',
-    text: '「開口チェック」→「発音チェック」の順に自動で進みます。案内に従って動かすだけです。',
+    text: '①開口→②発音→③笑顔の順に自動で進みます。案内に従って動かすだけです。途中で「✕ やめる」でいつでも中止できます。',
   },
   {
-    selector: '.panel-tabs',
-    title: 'ここで結果を見る',
-    text: 'チェックが終わると、それぞれの結果に切り替えて確認できます。',
+    selector: null,
+    title: '結果は別の画面で見られます',
+    text: 'チェックが終わると、撮影画面から結果画面に切り替わります。「📷 撮影画面に戻る」ボタンで、いつでも撮影に戻れます。',
+  },
+  {
+    selector: null,
+    title: '屋外で画面が見えにくいときは',
+    text: '晴天の直射日光下では、スマホの画面が見えにくくなることがあります。故障ではありません。画面の明るさを最大にする、日陰や屋内に移動する、などをお試しください。',
   },
 ];
 
