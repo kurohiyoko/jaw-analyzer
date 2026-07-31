@@ -143,7 +143,7 @@ const faceMesh = new FaceMesh({
 faceMesh.setOptions({
   maxNumFaces: 1,
   refineLandmarks: true,
-  minDetectionConfidence: 0.7,
+  minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5,
 });
 faceMesh.onResults(onResults);
@@ -180,17 +180,18 @@ function onResults(results) {
   ctx.translate(cx, cy);
   ctx.rotate(tiltRad);
 
-  // グレーの円（背景）
-  ctx.beginPath();
-  ctx.arc(0, 0, frameR, 0, Math.PI * 2);
-  ctx.fillStyle = frameFill;
-  ctx.fill();
-  ctx.strokeStyle = guideColor;
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
+  const faceNotYetDetected = !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0;
 
-  // 顔がまだ検出されていない時だけ、白い楕円形の見本を表示（位置の目安）
-  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+  if (faceNotYetDetected) {
+    // 顔がまだ検出されていない時だけ、固定位置にグレーの丸＋白い楕円の見本を表示
+    ctx.beginPath();
+    ctx.arc(0, 0, frameR, 0, Math.PI * 2);
+    ctx.fillStyle = frameFill;
+    ctx.fill();
+    ctx.strokeStyle = guideColor;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
     ctx.beginPath();
     ctx.ellipse(0, 0, faceRx, faceRy, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#f6f0e8';
@@ -265,6 +266,11 @@ function onResults(results) {
   const nostR = px(lm[LM.NOSTRIL_R]);
   const cheekL = px(lm[LM.CHEEK_L]);
   const cheekR = px(lm[LM.CHEEK_R]);
+  const forehead = px(lm[LM.FOREHEAD]);
+  const eyeLT = px(lm[LM.EYE_L_TOP]);
+  const eyeLB = px(lm[LM.EYE_L_BOT]);
+  const eyeRT = px(lm[LM.EYE_R_TOP]);
+  const eyeRB = px(lm[LM.EYE_R_BOT]);
 
   // === 実際に検出した位置に連動する目・鼻・口・輪郭のガイド線（常時表示） ===
   {
@@ -295,17 +301,19 @@ function onResults(results) {
     const contourCy = (forehead.y + jaw.y) / 2;
     const contourRx = Math.abs(cheekR.x - cheekL.x) / 2 * 1.08;
     const contourRy = Math.abs(jaw.y - forehead.y) / 2 * 1.05;
+
+    // グレーの丸も、実際に検出した顔の位置・大きさに合わせて表示（固定位置とのズレを解消）
+    ctx.beginPath();
+    ctx.ellipse(contourCx, contourCy, contourRx * 1.25, contourRy * 1.2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = guideFill;
+    ctx.fill();
+
     ctx.beginPath();
     ctx.ellipse(contourCx, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
     ctx.strokeStyle = trackColor;
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-  const forehead = px(lm[LM.FOREHEAD]);
-  const eyeLT = px(lm[LM.EYE_L_TOP]);
-  const eyeLB = px(lm[LM.EYE_L_BOT]);
-  const eyeRT = px(lm[LM.EYE_R_TOP]);
-  const eyeRB = px(lm[LM.EYE_R_BOT]);
 
   const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
   const faceH = Math.hypot(jaw.y - forehead.y, jaw.x - forehead.x);
