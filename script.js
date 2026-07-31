@@ -155,6 +155,8 @@ function onResults(results) {
   const W = canvas.width;
   const H = canvas.height;
 
+  try {
+
   // === カメラの実写映像はそのまま見せる（canvasは透明にしてvideoを透過）===
   ctx.clearRect(0, 0, W, H);
 
@@ -689,6 +691,17 @@ function onResults(results) {
   // ミニキャンバス更新
   drawTraj();
   drawJerk();
+
+  } catch (err) {
+    // 想定外のエラーが起きた場合、原因が分かるよう画面上部に表示する（デバッグ用）
+    const el = document.getElementById('faceGuideTopMsg');
+    if (el) {
+      el.textContent = '⚠ 内部エラー: ' + err.message + ' (行:' + (err.lineNumber || '?') + ')';
+      el.style.display = 'block';
+      el.style.color = 'var(--danger)';
+    }
+    console.error('onResults error:', err);
+  }
 }
 
 function drawTraj() {
