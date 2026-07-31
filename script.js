@@ -9,6 +9,9 @@ let recording = false;
 let recordedFrames = [];
 let replayTimer = null;
 let deviceTilt = 0;
+// 顔ガイド枠の平滑化用（毎フレームのガタつきを抑えつつ、個人の顔の大きさには追従させる）
+let smoothGuide = null; // { cx, cy, rx, ry }
+const GUIDE_SMOOTHING = 0.88; // 大きいほど滑らか（追従は遅くなる）
 let checkInProgress = false; // ガイド中は常時案内を隠す（チェック側の案内に任せる）
 
 // 発音チェック（あ・い・う・え・お）用状態
@@ -243,6 +246,7 @@ function onResults(results) {
   }
 
   if (!faceDetected) {
+    smoothGuide = null; // 検出が途切れたら平滑化をリセット（次に検出した位置から作り直す）
     return;
   }
 
@@ -277,12 +281,27 @@ function onResults(results) {
     const trackColor = 'rgba(120,150,150,0.9)';
 
     // 輪郭の位置・大きさ（額・あご・両頬の実測値から算出）
-    const contourCx = (cheekL.x + cheekR.x) / 2;
-    const contourCy = (forehead.y + jaw.y) / 2;
-    const contourRx = Math.abs(cheekR.x - cheekL.x) / 2 * 1.08;
-    const contourRy = Math.abs(jaw.y - forehead.y) / 2 * 1.05;
+    const rawCx = (cheekL.x + cheekR.x) / 2;
+    const rawCy = (forehead.y + jaw.y) / 2;
+    const rawRx = Math.abs(cheekR.x - cheekL.x) / 2 * 1.08;
+    const rawRy = Math.abs(jaw.y - forehead.y) / 2 * 1.05;
 
-    // グレーの丸（実際の顔の位置・大きさに追従）
+    // 平滑化（急なガタつきを抑え、個人の顔の大きさには時間をかけて合わせる）
+    if (!smoothGuide) {
+      smoothGuide = { cx: rawCx, cy: rawCy, rx: rawRx, ry: rawRy };
+    } else {
+      const s = GUIDE_SMOOTHING;
+      smoothGuide.cx = smoothGuide.cx * s + rawCx * (1 - s);
+      smoothGuide.cy = smoothGuide.cy * s + rawCy * (1 - s);
+      smoothGuide.rx = smoothGuide.rx * s + rawRx * (1 - s);
+      smoothGuide.ry = smoothGuide.ry * s + rawRy * (1 - s);
+    }
+    const contourCx = smoothGuide.cx;
+    const contourCy = smoothGuide.cy;
+    const contourRx = smoothGuide.rx;
+    const contourRy = smoothGuide.ry;
+
+    // グレーの丸（平滑化した位置・大きさに追従）
     ctx.beginPath();
     ctx.ellipse(contourCx, contourCy, contourRx * 1.25, contourRy * 1.2, 0, 0, Math.PI * 2);
     ctx.fillStyle = guideFillColor;
