@@ -214,15 +214,11 @@ function onResults(results) {
 
   // ガイド文言は顔の上ではなく画面上部の固定バナーに表示（顔に文字を重ねない）
   const guideMsgEl = document.getElementById('faceGuideTopMsg');
-  const betaDiff = deviceBeta - 90; // 90°=スマホを垂直に立てた状態が基準
+  // 前後の傾き（beta）は機種によって基準がバラバラで実用的な判定が難しいため、案内は一旦停止
   if (Math.abs(deviceTilt || 0) >= 5) {
     guideMsgEl.textContent = Math.abs(deviceTilt) < 15 ? '📱 スマホをまっすぐ持ってください（左右）' : '📱 スマホがかなり傾いています（左右）';
     guideMsgEl.style.display = 'block';
     guideMsgEl.style.color = Math.abs(deviceTilt) < 15 ? 'var(--warn)' : 'var(--danger)';
-  } else if (Math.abs(betaDiff) >= 12) {
-    guideMsgEl.textContent = betaDiff > 0 ? '📱 スマホの上を少し起こしてください（前後）' : '📱 スマホの上を少し倒してください（前後）';
-    guideMsgEl.style.display = 'block';
-    guideMsgEl.style.color = Math.abs(betaDiff) < 25 ? 'var(--warn)' : 'var(--danger)';
   } else if (!checkInProgress) {
     // 傾きに問題が無ければ、通常時は常に位置合わせの案内を出しておく（初めての人向け）
     guideMsgEl.textContent = '👤 グレーの丸に、鼻と口を合わせてください';
