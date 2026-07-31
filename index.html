@@ -930,15 +930,21 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       <!-- 継続利用バナー（連続記録日数・リマインダー） -->
       <div class="streak-banner" id="streakBanner"></div>
 
+      <!-- 真顔・姿勢チェック案内 -->
+      <div class="vowel-prompt" id="posturePrompt">
+        <div class="vowel-prompt-text"><b>真顔・姿勢チェック</b><br>正面を向いたまま<br>そのままの姿勢でいてください</div>
+        <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="posturePromptBar"></div></div>
+      </div>
+
       <!-- 開口チェック案内 -->
       <div class="vowel-prompt" id="jawPrompt">
-        <div class="vowel-prompt-text"><b>① 開口チェック</b><br>ゆっくり口を大きく<br>開け閉めしてください</div>
+        <div class="vowel-prompt-text"><b>開口チェック</b><br>ゆっくり口を大きく<br>開け閉めしてください</div>
         <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="jawPromptBar"></div></div>
       </div>
 
       <!-- 発音チェック案内 -->
       <div class="vowel-prompt" id="vowelPrompt">
-        <div class="vowel-prompt-text"><b>② 発音チェック</b><br>「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
+        <div class="vowel-prompt-text"><b>発音チェック</b><br>「あ・い・う・え・お」と<br>自然に続けて発音してください</div>
         <div class="vowel-prompt-bar-wrap"><div class="vowel-prompt-bar" id="vowelPromptBar"></div></div>
       </div>
 
@@ -947,6 +953,22 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
       <!-- チェック中止ボタン -->
       <button class="cancel-check-btn" id="cancelCheckBtn" style="display:none;">✕ やめる</button>
+
+      <!-- チェック項目の選択（真顔・姿勢チェックの後に表示） -->
+      <div class="stage-announce" id="checkSelectOverlay" style="display:none; flex-direction:column;">
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; max-width:320px;">
+          <div style="font-size:15px; font-weight:700; margin-bottom:14px; color:var(--text);">次に確認したい項目を選んでください</div>
+          <label style="display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="chkFaceDistortion" style="width:20px; height:20px;" checked>
+            顔の歪みチェック（笑顔）
+          </label>
+          <label style="display:flex; align-items:center; gap:10px; margin-bottom:18px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="chkJawDistortion" style="width:20px; height:20px;" checked>
+            顎の動きによる歪みチェック（開口・発音）
+          </label>
+          <button class="btn-start" id="btnCheckSelectConfirm" style="width:100%;">選んだ項目を確認する</button>
+        </div>
+      </div>
 
       <!-- カウントダウン（3・2・1） -->
       <div class="countdown-box" id="countdownBox"></div>
@@ -998,6 +1020,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
     <button class="back-to-camera-btn" id="btnBackToCamera">📷 撮影画面に戻る</button>
     <div class="panel-tabs">
       <button class="panel-tab active" data-tab="score">スコア</button>
+      <button class="panel-tab" data-tab="posture">姿勢</button>
       <button class="panel-tab" data-tab="vowel">発音</button>
       <button class="panel-tab" data-tab="smile">笑顔</button>
       <button class="panel-tab" data-tab="compare">比較</button>
@@ -1078,6 +1101,23 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
       </div>
 
       <!-- 笑顔チェックタブ（追加チェック） -->
+      <!-- 姿勢タブ -->
+      <div class="panel-section" id="tab-posture">
+        <div class="vowel-result-empty" id="postureResultEmpty">
+          セルフチェックの最初に、姿勢（首の傾き）を測定します。結果はここに表示されます。
+        </div>
+        <div class="vowel-result" id="postureResult" style="display:none">
+          <div class="vowel-item">
+            <div class="vowel-item-label">首の傾き</div>
+            <div class="vowel-item-val" id="posture-neck">—</div>
+          </div>
+          <div class="vowel-comment" id="posture-comment"></div>
+          <div class="vowel-comment" style="margin-top:6px;">
+            ※ 肩の高さは今回のバージョンでは測定していません（今後追加予定）。首の傾きは正面から見た目安であり、医学的な診断ではありません。
+          </div>
+        </div>
+      </div>
+
       <div class="panel-section" id="tab-smile">
         <div class="vowel-result-empty" id="smileResultEmpty">
           画面下の「▶ セルフチェックを始める」の最後に「笑ってください」という案内が出ます。笑顔のときの左右差はここに表示されます。
@@ -1091,6 +1131,10 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
           <div class="vowel-item">
             <div class="vowel-item-label">笑顔時の頬の左右差</div>
             <div class="vowel-item-val" id="sm-cheek">—</div>
+          </div>
+          <div class="vowel-item">
+            <div class="vowel-item-label">目の大きさ・高さの左右差</div>
+            <div class="vowel-item-val" id="sm-eye">—</div>
           </div>
           <div class="vowel-comment" id="sm-comment"></div>
         </div>
