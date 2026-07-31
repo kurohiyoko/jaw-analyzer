@@ -193,7 +193,7 @@ function onResults(results) {
   const faceDetected = !!(results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0);
 
   if (!faceDetected) {
-    // 顔がまだ検出されていない時：固定位置にグレーの丸＋白い楕円の見本を表示
+    // 顔がまだ検出されていない時：固定位置に「外側を暗く・内側は素通し」のガイド＋白い楕円の見本を表示
     const tiltRad = (deviceTilt || 0) * Math.PI / 180;
     const cx = W / 2;
     const cy = H * 0.40;
@@ -201,14 +201,22 @@ function onResults(results) {
     const faceRx = frameR * 0.56;
     const faceRy = frameR * 0.72;
 
+    // 外側を暗く、丸の内側は素通し（スポットライト方式）
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.arc(cx, cy, frameR, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(20,20,20,0.45)';
+    ctx.fill('evenodd');
+    ctx.restore();
+
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(tiltRad);
 
     ctx.beginPath();
     ctx.arc(0, 0, frameR, 0, Math.PI * 2);
-    ctx.fillStyle = guideFillColor;
-    ctx.fill();
     ctx.strokeStyle = guideStrokeColor;
     ctx.lineWidth = 2.5;
     ctx.stroke();
@@ -325,11 +333,17 @@ function onResults(results) {
     if (smoothGuide) {
       const { cx: contourCx, cy: contourCy, rx: contourRx, ry: contourRy, eyeLineY, mouthLineY, noseX } = smoothGuide;
 
-      // グレーの丸（測定した位置・大きさで固定）
+      // 丸の外側を暗く、内側（丸の中）は素通し（スポットライト方式）
+      const holeRx = contourRx * 1.25;
+      const holeRy = contourRy * 1.2;
+      ctx.save();
       ctx.beginPath();
-      ctx.ellipse(contourCx, contourCy, contourRx * 1.25, contourRy * 1.2, 0, 0, Math.PI * 2);
-      ctx.fillStyle = guideFillColor;
-      ctx.fill();
+      ctx.rect(0, 0, W, H);
+      ctx.ellipse(contourCx, contourCy, holeRx, holeRy, 0, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(20,20,20,0.45)';
+      ctx.fill('evenodd');
+      ctx.restore();
 
       // 輪郭線
       ctx.beginPath();
