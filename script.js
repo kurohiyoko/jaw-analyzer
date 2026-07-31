@@ -12,6 +12,20 @@ let deviceTilt = 0;
 // 顔ガイド枠の平滑化用（毎フレームのガタつきを抑えつつ、個人の顔の大きさには追従させる）
 let smoothGuide = null; // { cx, cy, rx, ry }
 const GUIDE_SMOOTHING = 0.88; // 大きいほど滑らか（追従は遅くなる）
+
+// ガイド枠のキャリブレーション（最初の数十フレームだけ位置を測定→以降は固定）
+let guideCalibrated = false;
+let calibrationSamples = [];
+const CALIBRATION_FRAMES = 20; // この枚数の検出で位置を確定する
+let noFaceStreak = 0;
+
+// 目の開き左右差（真顔時の基準値として使う。onResults内で毎フレーム最新値に更新）
+let lastEyeOpenDiffNorm = 0;
+let baselineEyeOpenDiffNorm = 0; // 真顔スナップショット時点の基準値
+
+// 首の傾き（姿勢チェック用。目の傾きを首・頭の傾きの目安として使う）
+let lastNeckTiltAngle = 0;
+let baselineNeckTiltAngle = 0;
 let checkInProgress = false; // ガイド中は常時案内を隠す（チェック側の案内に任せる）
 
 // 発音チェック（あ・い・う・え・お）用状態
@@ -246,9 +260,16 @@ function onResults(results) {
   }
 
   if (!faceDetected) {
-    smoothGuide = null; // 検出が途切れたら平滑化をリセット（次に検出した位置から作り直す）
+    noFaceStreak++;
+    if (noFaceStreak > 30) {
+      // 検出できない状態がしばらく続いた時だけ、測り直しにする（瞬間的な検出漏れでは崩さない）
+      smoothGuide = null;
+      guideCalibrated = false;
+      calibrationSamples = [];
+    }
     return;
   }
+  noFaceStreak = 0;
 
   const lm = results.multiFaceLandmarks[0];
 
@@ -274,65 +295,74 @@ function onResults(results) {
   const eyeRT = px(lm[LM.EYE_R_TOP]);
   const eyeRB = px(lm[LM.EYE_R_BOT]);
 
-  // === 顔が検出されている間：実際の位置に連動する目・鼻・口・輪郭ガイド ===
+  // === 顔ガイド：最初の数十フレームで位置を測定→その後は固定表示 ===
   {
-    const eyeLineY = (eyeL.y + eyeR.y) / 2;
-    const mouthLineY = (mL.y + mR.y) / 2;
     const trackColor = 'rgba(120,150,150,0.9)';
 
-    // 輪郭の位置・大きさ（額・あご・両頬の実測値から算出）
-    const rawCx = (cheekL.x + cheekR.x) / 2;
-    const rawCy = (forehead.y + jaw.y) / 2;
-    const rawRx = Math.abs(cheekR.x - cheekL.x) / 2 * 1.08;
-    const rawRy = Math.abs(jaw.y - forehead.y) / 2 * 1.05;
-
-    // 平滑化（急なガタつきを抑え、個人の顔の大きさには時間をかけて合わせる）
-    if (!smoothGuide) {
-      smoothGuide = { cx: rawCx, cy: rawCy, rx: rawRx, ry: rawRy };
-    } else {
-      const s = GUIDE_SMOOTHING;
-      smoothGuide.cx = smoothGuide.cx * s + rawCx * (1 - s);
-      smoothGuide.cy = smoothGuide.cy * s + rawCy * (1 - s);
-      smoothGuide.rx = smoothGuide.rx * s + rawRx * (1 - s);
-      smoothGuide.ry = smoothGuide.ry * s + rawRy * (1 - s);
+    if (!guideCalibrated) {
+      // キャリブレーション中：目・鼻・口・輪郭の位置を集めて平均する
+      const eyeLineYNow = (eyeL.y + eyeR.y) / 2;
+      const mouthLineYNow = (mL.y + mR.y) / 2;
+      calibrationSamples.push({
+        cx: (cheekL.x + cheekR.x) / 2,
+        cy: (forehead.y + jaw.y) / 2,
+        rx: Math.abs(cheekR.x - cheekL.x) / 2 * 1.08,
+        ry: Math.abs(jaw.y - forehead.y) / 2 * 1.05,
+        eyeLineY: eyeLineYNow,
+        mouthLineY: mouthLineYNow,
+        noseX: nose.x,
+      });
+      if (calibrationSamples.length >= CALIBRATION_FRAMES) {
+        const avg = (key) => calibrationSamples.reduce((s, v) => s + v[key], 0) / calibrationSamples.length;
+        smoothGuide = {
+          cx: avg('cx'), cy: avg('cy'), rx: avg('rx'), ry: avg('ry'),
+          eyeLineY: avg('eyeLineY'), mouthLineY: avg('mouthLineY'), noseX: avg('noseX'),
+        };
+        guideCalibrated = true;
+      }
     }
-    const contourCx = smoothGuide.cx;
-    const contourCy = smoothGuide.cy;
-    const contourRx = smoothGuide.rx;
-    const contourRy = smoothGuide.ry;
 
-    // グレーの丸（平滑化した位置・大きさに追従）
-    ctx.beginPath();
-    ctx.ellipse(contourCx, contourCy, contourRx * 1.25, contourRy * 1.2, 0, 0, Math.PI * 2);
-    ctx.fillStyle = guideFillColor;
-    ctx.fill();
+    if (smoothGuide) {
+      const { cx: contourCx, cy: contourCy, rx: contourRx, ry: contourRy, eyeLineY, mouthLineY, noseX } = smoothGuide;
 
-    // 輪郭線
-    ctx.beginPath();
-    ctx.ellipse(contourCx, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = trackColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+      // グレーの丸（測定した位置・大きさで固定）
+      ctx.beginPath();
+      ctx.ellipse(contourCx, contourCy, contourRx * 1.25, contourRy * 1.2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = guideFillColor;
+      ctx.fill();
 
-    // 目のライン（横）
-    ctx.strokeStyle = trackColor;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 3]);
-    ctx.beginPath();
-    ctx.moveTo(eyeL.x - 24, eyeLineY);
-    ctx.lineTo(eyeR.x + 24, eyeLineY);
-    ctx.stroke();
-    // 鼻のライン（縦）
-    ctx.beginPath();
-    ctx.moveTo(nose.x, eyeLineY - 14);
-    ctx.lineTo(nose.x, mouthLineY + 14);
-    ctx.stroke();
-    // 口元のライン（横）
-    ctx.beginPath();
-    ctx.moveTo(mL.x - 12, mouthLineY);
-    ctx.lineTo(mR.x + 12, mouthLineY);
-    ctx.stroke();
-    ctx.setLineDash([]);
+      // 輪郭線
+      ctx.beginPath();
+      ctx.ellipse(contourCx, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = trackColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 目のライン（横・固定）
+      ctx.strokeStyle = trackColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(contourCx - contourRx * 0.75, eyeLineY);
+      ctx.lineTo(contourCx + contourRx * 0.75, eyeLineY);
+      ctx.stroke();
+      // 鼻のライン（縦・固定）
+      ctx.beginPath();
+      ctx.moveTo(noseX, eyeLineY - 14);
+      ctx.lineTo(noseX, mouthLineY + 14);
+      ctx.stroke();
+      // 口元のライン（横・固定）
+      ctx.beginPath();
+      ctx.moveTo(contourCx - contourRx * 0.4, mouthLineY);
+      ctx.lineTo(contourCx + contourRx * 0.4, mouthLineY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      // キャリブレーション中の進捗表示
+      guideMsgEl.textContent = `📍 位置を測定中...（${calibrationSamples.length}/${CALIBRATION_FRAMES}）`;
+      guideMsgEl.style.display = 'block';
+      guideMsgEl.style.color = 'var(--accent)';
+    }
   }
 
   const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
@@ -355,9 +385,13 @@ function onResults(results) {
   const jawShiftMm = (jawShiftPx / eyeDist * 15).toFixed(1);
 
   const eyeAngle = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180 / Math.PI;
+  lastNeckTiltAngle = eyeAngle; // 目の傾き＝頭・首の左右傾きの目安として常に最新値を保存
   const eyeOpenL = Math.abs(eyeLB.y - eyeLT.y);
   const eyeOpenR = Math.abs(eyeRB.y - eyeRT.y);
   const eyeOpenDiff = Math.abs(eyeOpenL - eyeOpenR);
+  // 目の開き左右差（正規化・符号付き：正=左目が大きい）。常に最新値を保存しておき、真顔スナップショット時の基準値として使う
+  const eyeOpenDiffNorm = ((eyeOpenL - eyeOpenR) / eyeDist) * 100;
+  lastEyeOpenDiffNorm = eyeOpenDiffNorm;
 
   const browDiff = Math.abs(browL.y - browR.y);
   const cornerDiff = Math.abs(mLRel.y - mRRel.y);
@@ -378,9 +412,9 @@ function onResults(results) {
     vowelFrames.push({ cornerDiffNorm, noseAngle, cheekWidthDiffNorm, openPct });
   }
 
-  // 笑顔チェック中はフレームごとに記録
+  // 笑顔チェック中はフレームごとに記録（口角・頬に加えて、目の開き具合も記録する）
   if (smileRecording) {
-    smileFrames.push({ cornerDiffNorm, cheekWidthDiffNorm, noseAngle });
+    smileFrames.push({ cornerDiffNorm, cheekWidthDiffNorm, noseAngle, eyeOpenDiffNorm });
   }
 
   // 部位別スコア
@@ -825,6 +859,63 @@ function startJawStage(onDone) {
   requestAnimationFrame(tick);
 }
 
+// ===== 真顔・姿勢チェック（全員必須。写真の保存と、目・首の傾きの基準値をここで測定） =====
+let neckTiltSamples = [];
+function startPostureStage(onDone) {
+  const prompt = document.getElementById('posturePrompt');
+  const bar = document.getElementById('posturePromptBar');
+  prompt.style.display = 'block';
+  bar.style.width = '0%';
+  neckTiltSamples = [];
+
+  const duration = 2500; // 2.5秒間、正面を向いたまま静止してもらう
+  const startT = performance.now();
+  function tick() {
+    const elapsed = performance.now() - startT;
+    bar.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+    neckTiltSamples.push(lastNeckTiltAngle);
+    if (elapsed < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      prompt.style.display = 'none';
+      finishPostureStage();
+      onDone && onDone();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+function startPostureStageP() {
+  return new Promise(resolve => startPostureStage(resolve));
+}
+
+function finishPostureStage() {
+  if (neckTiltSamples.length === 0) {
+    document.getElementById('posture-comment').textContent = '顔がうまく検出できませんでした。もう一度お試しください。';
+    document.getElementById('postureResultEmpty').style.display = 'none';
+    document.getElementById('postureResult').style.display = 'block';
+    return;
+  }
+  const avgTilt = neckTiltSamples.reduce((s, v) => s + v, 0) / neckTiltSamples.length;
+  baselineNeckTiltAngle = avgTilt;
+
+  const TILT_TH = 3.0;
+  let neckText;
+  if (Math.abs(avgTilt) < TILT_TH) {
+    neckText = '首の傾きは、ほぼまっすぐです';
+  } else {
+    const side = avgTilt > 0 ? '右' : '左';
+    neckText = `首がやや${side}に傾いています（${Math.abs(avgTilt).toFixed(1)}°）`;
+  }
+  document.getElementById('posture-neck').textContent = neckText;
+  document.getElementById('posture-comment').textContent =
+    Math.abs(avgTilt) < TILT_TH
+      ? '姿勢の左右バランスは良好です。'
+      : '普段、片側に傾いて座る・立つ癖があるかもしれません。';
+
+  document.getElementById('postureResultEmpty').style.display = 'none';
+  document.getElementById('postureResult').style.display = 'block';
+}
+
 // ===== 数値表示・モード切替バーの表示ON/OFF（チェック中は隠してシンプルに） =====
 function setNumericVisible(visible) {
   document.getElementById('scoreOverlay').style.display = visible ? '' : 'none';
@@ -840,6 +931,24 @@ function showResultsScreen() {
 function showCaptureScreen() {
   document.getElementById('cameraWrap').style.display = '';
   document.getElementById('bottomPanel').style.display = 'none';
+}
+
+// ===== チェック項目の選択（真顔・姿勢チェックの後に表示。複数選択可） =====
+function showCheckSelectOverlay() {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('checkSelectOverlay');
+    overlay.style.display = 'flex';
+    const btn = document.getElementById('btnCheckSelectConfirm');
+    const onClick = () => {
+      overlay.style.display = 'none';
+      btn.removeEventListener('click', onClick);
+      resolve({
+        faceDistortion: document.getElementById('chkFaceDistortion').checked,
+        jawDistortion: document.getElementById('chkJawDistortion').checked,
+      });
+    };
+    btn.addEventListener('click', onClick);
+  });
 }
 
 // ===== 汎用ヘルパー =====
@@ -942,13 +1051,15 @@ function finishSmileCheck() {
   const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
   const cornerAvg = avg(smileFrames.map(f => f.cornerDiffNorm));
   const cheekAvg = avg(smileFrames.map(f => f.cheekWidthDiffNorm));
+  const eyeAvgDuringSmile = avg(smileFrames.map(f => f.eyeOpenDiffNorm));
   lastSmileCornerAvg = cornerAvg;
   lastSmileCheekAvg = cheekAvg;
 
   const CORNER_TH = 3.0;
   const CHEEK_TH = 4.0;
+  const EYE_TH = 2.5;
 
-  let cornerText, cheekText;
+  let cornerText, cheekText, eyeText;
   if (Math.abs(cornerAvg) < CORNER_TH) {
     cornerText = '笑顔でも左右差は小さく、バランス良く上がっています';
   } else if (cornerAvg > 0) {
@@ -964,10 +1075,36 @@ function finishSmileCheck() {
     cheekText = '笑うと、右の頬がやや張り出しやすい傾向があります';
   }
 
+  // ===== 目の左右差：真顔の基準値と、笑顔時の値を比べて原因を切り分ける =====
+  // eyeOpenDiffNorm は 正=左目が大きい／負=右目が大きい
+  const eyeDiffFromBaseline = eyeAvgDuringSmile - baselineEyeOpenDiffNorm; // 笑顔で悪化した分だけを見る
+  const eyeSideDuringSmile = eyeAvgDuringSmile > 0 ? '左' : '右';
+  const eyeSideSmaller = eyeAvgDuringSmile > 0 ? '右' : '左'; // 小さく/下がって見える側
+
+  if (Math.abs(baselineEyeOpenDiffNorm) < EYE_TH && Math.abs(eyeAvgDuringSmile) < EYE_TH) {
+    eyeText = '真顔・笑顔とも目の大きさに左右差は見られません';
+  } else if (Math.abs(baselineEyeOpenDiffNorm) >= EYE_TH && Math.abs(eyeDiffFromBaseline) < EYE_TH) {
+    // 真顔の時点ですでに差があり、笑顔でもその差がほぼ変わらない→構造的な差の可能性
+    const baseSide = baselineEyeOpenDiffNorm > 0 ? '左' : '右';
+    eyeText = `真顔の時点で${baseSide}目がやや大きく、笑顔でもその傾向は変わりません（もともとの左右差の可能性があります）`;
+  } else if (Math.abs(eyeAvgDuringSmile) >= EYE_TH) {
+    // 笑顔になると差が拡大する→表情筋（口角・頬）の動きが影響している可能性
+    // 頬が上がりにくい側と、目が小さく見える側が一致するかで説明文を調整
+    const cheekWeakSide = cheekAvg > 0 ? '右' : '左'; // cheekAvgの符号に対応する「張り出しが弱い側」
+    if (eyeSideSmaller === cheekWeakSide || Math.abs(cheekAvg) < CHEEK_TH) {
+      eyeText = `笑顔になると${eyeSideSmaller}目がやや小さく・下がって見えます。${eyeSideSmaller}側の頬の上がりが弱く、笑い方の強さの差が影響している可能性があります`;
+    } else {
+      eyeText = `笑顔になると${eyeSideSmaller}目がやや小さく・下がって見えます`;
+    }
+  } else {
+    eyeText = '目の大きさの左右差は、真顔・笑顔ともに軽度です';
+  }
+
   document.getElementById('sm-corner').textContent = cornerText;
   document.getElementById('sm-cheek').textContent = cheekText;
+  document.getElementById('sm-eye').textContent = eyeText;
 
-  const flagCount = [Math.abs(cornerAvg) >= CORNER_TH, Math.abs(cheekAvg) >= CHEEK_TH].filter(Boolean).length;
+  const flagCount = [Math.abs(cornerAvg) >= CORNER_TH, Math.abs(cheekAvg) >= CHEEK_TH, Math.abs(eyeAvgDuringSmile) >= EYE_TH].filter(Boolean).length;
   document.getElementById('sm-comment').textContent =
     flagCount === 0
       ? '笑顔での癖は目立って現れていません。'
@@ -1124,9 +1261,11 @@ function abortGuidedCheck() {
   checkInProgress = false;
   document.getElementById('stageAnnounce').style.display = 'none';
   document.getElementById('countdownBox').style.display = 'none';
+  document.getElementById('posturePrompt').style.display = 'none';
   document.getElementById('jawPrompt').style.display = 'none';
   document.getElementById('vowelPrompt').style.display = 'none';
   document.getElementById('smileStageOverlay').style.display = 'none';
+  document.getElementById('checkSelectOverlay').style.display = 'none';
   document.getElementById('cancelCheckBtn').style.display = 'none';
   setNumericVisible(false);
   const btn = document.getElementById('btnStartCheck');
@@ -1154,25 +1293,45 @@ async function startGuidedCheck() {
 
   await showAnnounce('グレーの丸に鼻と口を合わせ、\nスマホを動かさずに\nそのまま持っていてください', 2600);
   if (checkAbort) return;
-  await showAnnounce('初めに　顎の歪みを\nチェックします', 1800);
+
+  // ===== 全員必須：真顔チェック＋姿勢チェック（同時に測定） =====
+  await showAnnounce('はじめに　真顔と姿勢を\nチェックします', 1800);
   if (checkAbort) return;
   await runCountdown();
   if (checkAbort) return;
-  const snapshot = captureSnapshot(); // 開口チェック直前の正面写真を記録用に保存
-  await withTimeout(startJawStageP(), 8000);
+  const snapshot = captureSnapshot(); // 正面写真を記録用に保存
+  baselineEyeOpenDiffNorm = lastEyeOpenDiffNorm; // 目の開き差の基準値
+  await withTimeout(startPostureStageP(), 5000);
   if (checkAbort) return;
 
-  await showAnnounce('続いて表情チェックに\n進みます', 1800);
-  if (checkAbort) return;
-  await runCountdown();
-  if (checkAbort) return;
-  await withTimeout(startVowelCheckP(), 7000);
+  // ===== 確認したい項目を選んでもらう（複数選択可） =====
+  const selection = await showCheckSelectOverlay();
   if (checkAbort) return;
 
-  await showAnnounce('続いて追加チェックです', 1500);
-  if (checkAbort) return;
-  await withTimeout(startSmileStageP(), 7000);
-  if (checkAbort) return;
+  // ===== 顔の歪みチェック（笑顔）=====
+  if (selection.faceDistortion) {
+    await showAnnounce('続いて顔の歪み\nチェックです', 1600);
+    if (checkAbort) return;
+    await withTimeout(startSmileStageP(), 7000);
+    if (checkAbort) return;
+  }
+
+  // ===== 顎の動きによる歪みチェック（開口＋発音）=====
+  if (selection.jawDistortion) {
+    await showAnnounce('続いて顎の動きによる\n歪みをチェックします', 1800);
+    if (checkAbort) return;
+    await runCountdown();
+    if (checkAbort) return;
+    await withTimeout(startJawStageP(), 8000);
+    if (checkAbort) return;
+
+    await showAnnounce('続いて発音チェックです', 1500);
+    if (checkAbort) return;
+    await runCountdown();
+    if (checkAbort) return;
+    await withTimeout(startVowelCheckP(), 7000);
+    if (checkAbort) return;
+  }
 
   checkInProgress = false;
   document.getElementById('cancelCheckBtn').style.display = 'none';
