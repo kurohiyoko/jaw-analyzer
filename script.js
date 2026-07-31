@@ -290,13 +290,13 @@ function onResults(results) {
     ctx.lineTo(mR.x + 12, mouthLineY);
     ctx.stroke();
     ctx.setLineDash([]);
-    // 輪郭（顔の実際の大きさに合わせた楕円）
-    const eyeDistPx = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y);
-    const contourRx = eyeDistPx * 1.35;
-    const contourRy = eyeDistPx * 1.85;
-    const contourCy = (eyeLineY + jaw.y) / 2;
+    // 輪郭（額・あご・両頬の実測位置から、なめらかな楕円として描画）
+    const contourCx = (cheekL.x + cheekR.x) / 2;
+    const contourCy = (forehead.y + jaw.y) / 2;
+    const contourRx = Math.abs(cheekR.x - cheekL.x) / 2 * 1.08;
+    const contourRy = Math.abs(jaw.y - forehead.y) / 2 * 1.05;
     ctx.beginPath();
-    ctx.ellipse(nose.x, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
+    ctx.ellipse(contourCx, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
     ctx.strokeStyle = trackColor;
     ctx.lineWidth = 2;
     ctx.stroke();
