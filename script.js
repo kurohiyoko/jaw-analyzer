@@ -308,30 +308,24 @@ function onResults(results) {
     const trackColor = 'rgba(120,150,150,0.9)';
 
     if (!guideCalibrated) {
-      // キャリブレーション中：目・鼻・口・輪郭の位置を集めて平均する
-      const eyeLineYNow = (eyeL.y + eyeR.y) / 2;
-      const mouthLineYNow = (mL.y + mR.y) / 2;
+      // キャリブレーション中：輪郭（頬・額・あご）の位置を集めて平均する
       calibrationSamples.push({
         cx: (cheekL.x + cheekR.x) / 2,
         cy: (forehead.y + jaw.y) / 2,
         rx: Math.abs(cheekR.x - cheekL.x) / 2 * 1.08,
         ry: Math.abs(jaw.y - forehead.y) / 2 * 1.05,
-        eyeLineY: eyeLineYNow,
-        mouthLineY: mouthLineYNow,
-        noseX: nose.x,
       });
       if (calibrationSamples.length >= CALIBRATION_FRAMES) {
         const avg = (key) => calibrationSamples.reduce((s, v) => s + v[key], 0) / calibrationSamples.length;
         smoothGuide = {
           cx: avg('cx'), cy: avg('cy'), rx: avg('rx'), ry: avg('ry'),
-          eyeLineY: avg('eyeLineY'), mouthLineY: avg('mouthLineY'), noseX: avg('noseX'),
         };
         guideCalibrated = true;
       }
     }
 
     if (smoothGuide) {
-      const { cx: contourCx, cy: contourCy, rx: contourRx, ry: contourRy, eyeLineY, mouthLineY, noseX } = smoothGuide;
+      const { cx: contourCx, cy: contourCy, rx: contourRx, ry: contourRy } = smoothGuide;
 
       // 丸の外側を暗く、内側（丸の中）は素通し（スポットライト方式）
       const holeRx = contourRx * 1.25;
@@ -345,32 +339,13 @@ function onResults(results) {
       ctx.fill('evenodd');
       ctx.restore();
 
-      // 輪郭線
+      // 輪郭線（位置合わせ用の丸のみ表示。目・鼻・口の実際の位置確認は「骨格モード」側の表示に任せるため、
+      // 固定ガイド側の目・鼻・口ラインは廃止した）
       ctx.beginPath();
       ctx.ellipse(contourCx, contourCy, contourRx, contourRy, 0, 0, Math.PI * 2);
       ctx.strokeStyle = trackColor;
       ctx.lineWidth = 2;
       ctx.stroke();
-
-      // 目のライン（横・固定）
-      ctx.strokeStyle = trackColor;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 3]);
-      ctx.beginPath();
-      ctx.moveTo(contourCx - contourRx * 0.75, eyeLineY);
-      ctx.lineTo(contourCx + contourRx * 0.75, eyeLineY);
-      ctx.stroke();
-      // 鼻のライン（縦・固定）
-      ctx.beginPath();
-      ctx.moveTo(noseX, eyeLineY - 14);
-      ctx.lineTo(noseX, mouthLineY + 14);
-      ctx.stroke();
-      // 口元のライン（横・固定）
-      ctx.beginPath();
-      ctx.moveTo(contourCx - contourRx * 0.4, mouthLineY);
-      ctx.lineTo(contourCx + contourRx * 0.4, mouthLineY);
-      ctx.stroke();
-      ctx.setLineDash([]);
     } else {
       // キャリブレーション中の進捗表示
       guideMsgEl.textContent = `📍 位置を測定中...（${calibrationSamples.length}/${CALIBRATION_FRAMES}）`;
