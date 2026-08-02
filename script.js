@@ -308,17 +308,24 @@ function onResults(results) {
     const trackColor = 'rgba(120,150,150,0.9)';
 
     if (!guideCalibrated) {
-      // キャリブレーション中：輪郭（頬・額・あご）の位置を集めて平均する
+      // キャリブレーション中：輪郭（頬・額・あご）に加えて、目の位置（安定した基準点）も集めて平均する
       calibrationSamples.push({
         cx: (cheekL.x + cheekR.x) / 2,
-        cy: (forehead.y + jaw.y) / 2,
         rx: Math.abs(cheekR.x - cheekL.x) / 2 * 1.08,
         ry: Math.abs(jaw.y - forehead.y) / 2 * 1.05,
+        eyeLineY: (eyeL.y + eyeR.y) / 2,
       });
       if (calibrationSamples.length >= CALIBRATION_FRAMES) {
         const avg = (key) => calibrationSamples.reduce((s, v) => s + v[key], 0) / calibrationSamples.length;
+        const avgRy = avg('ry');
+        const avgEyeLineY = avg('eyeLineY');
+        // スマホを構える角度（上下）による誤差の影響を受けにくい「目の位置」を基準に、丸の縦位置を安定させる
+        // （額・あごの2点だけを基準にすると、下向きに構えたときに丸ごと下にずれ、額が切れる／あごより下まで
+        // 　伸びすぎる、といった現象が起きやすいため）
+        const EYE_POSITION_RATIO = 0.38; // 丸の高さのうち、上から何割の位置に目のラインを置くか
+        const stableCy = avgEyeLineY + avgRy * (1 - 2 * EYE_POSITION_RATIO);
         smoothGuide = {
-          cx: avg('cx'), cy: avg('cy'), rx: avg('rx'), ry: avg('ry'),
+          cx: avg('cx'), cy: stableCy, rx: avg('rx'), ry: avgRy,
         };
         guideCalibrated = true;
       }
@@ -1280,6 +1287,12 @@ async function startGuidedCheck() {
   setNumericVisible(false);
   document.getElementById('cancelCheckBtn').style.display = 'block';
 
+  // ===== 最初に確認したい項目を選んでもらう（複数選択可）=====
+  // 「どこが歪んでいるか／何をすればよいか」という目標を先に持ってもらい、
+  // 継続利用（次はここも試そう、という意識）につなげるため、選択をフローの最初に移動
+  const selection = await showCheckSelectOverlay();
+  if (checkAbort) return;
+
   await showAnnounce('グレーの丸に鼻と口を合わせ、\nスマホを動かさずに\nそのまま持っていてください', 2600);
   if (checkAbort) return;
 
@@ -1291,10 +1304,6 @@ async function startGuidedCheck() {
   const snapshot = captureSnapshot(); // 正面写真を記録用に保存
   baselineEyeOpenDiffNorm = lastEyeOpenDiffNorm; // 目の開き差の基準値
   await withTimeout(startPostureStageP(), 5000);
-  if (checkAbort) return;
-
-  // ===== 確認したい項目を選んでもらう（複数選択可） =====
-  const selection = await showCheckSelectOverlay();
   if (checkAbort) return;
 
   // ===== 顔の歪みチェック（笑顔）=====
