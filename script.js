@@ -281,7 +281,19 @@ function onResults(results) {
 
   const lm = results.multiFaceLandmarks[0];
 
-  function px(l) { return { x: (1 - l.x) * W, y: l.y * H, z: l.z }; }
+  // 映像本来のサイズ（video.videoWidth/videoHeight）と、画面に実際に表示されているサイズ（W,H）の
+  // 比率が機種によって異なる場合があるため、そのズレを補正してから目・鼻・口などの位置を計算する
+  const vw = video.videoWidth || W;
+  const vh = video.videoHeight || H;
+  const dispScale = Math.max(W / vw, H / vh);
+  const dispOffsetX = (vw * dispScale - W) / 2;
+  const dispOffsetY = (vh * dispScale - H) / 2;
+
+  function px(l) {
+    const dispX = l.x * vw * dispScale - dispOffsetX;
+    const dispY = l.y * vh * dispScale - dispOffsetY;
+    return { x: W - dispX, y: dispY, z: l.z };
+  }
 
   const jaw = px(lm[LM.JAW]);
   const nose = px(lm[LM.NOSE]);
