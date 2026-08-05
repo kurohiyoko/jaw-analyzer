@@ -397,39 +397,63 @@ function onResults(results) {
     return { x: pt.x - nose.x, y: pt.y - nose.y, z: pt.z };
   }
   const jawRel = rel(jaw);
-  const mLRel = rel(mL);
-  const mRRel = rel(mR);
 
   // 各パーツ計算
   const openDist = Math.hypot(lipB.y - lipT.y, lipB.x - lipT.x);
   const openPct = Math.round((openDist / faceH) * 200);
 
-  // 手ブレ補正後の横ズレ
-  const jawShiftPx = jawRel.x;
-  const jawShiftMm = (jawShiftPx / eyeDist * 15).toFixed(1);
-
   const eyeAngle = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180 / Math.PI;
-  lastNeckTiltAngle = eyeAngle; // 目の傾き＝頭・首の左右傾きの目安として常に最新値を保存
-  const eyeOpenL = Math.abs(eyeLB.y - eyeLT.y);
-  const eyeOpenR = Math.abs(eyeRB.y - eyeRT.y);
+  lastNeckTiltAngle = eyeAngle; // 目の傾き＝頭・首の左右傾きの目安として常に最新値を保存（癖の情報として、補正せずそのまま残す）
+
+  // ===== 傾き補正（スマホ本体の傾きを、歪み測定からは取り除く） =====
+  // 目の傾き角度ぶんだけ、鼻を中心に各パーツを回転させ「まっすぐな状態」にしてから左右差を計算する。
+  // これにより、スマホをどんな角度で構えても、顔そのものの歪み（左右差）を正しく測定できる。
+  // 一方、回転させる前の角度（eyeAngle）自体は、頭・首の傾き癖の情報としてそのまま保持する。
+  function rotatePoint(pt, pivot, angleRad) {
+    const dx = pt.x - pivot.x;
+    const dy = pt.y - pivot.y;
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return { x: pivot.x + dx * cos - dy * sin, y: pivot.y + dx * sin + dy * cos, z: pt.z };
+  }
+  const tiltRad = -eyeAngle * Math.PI / 180;
+  const jawS = rotatePoint(jaw, nose, tiltRad);
+  // 手ブレ・スマホの傾き補正後の横ズレ（顎の左右への実際のズレ）
+  const jawShiftPx = jawS.x - nose.x;
+  const jawShiftMm = (jawShiftPx / eyeDist * 15).toFixed(1);
+  const mLS = rotatePoint(mL, nose, tiltRad);
+  const mRS = rotatePoint(mR, nose, tiltRad);
+  const browLS = rotatePoint(browL, nose, tiltRad);
+  const browRS = rotatePoint(browR, nose, tiltRad);
+  const nostLS = rotatePoint(nostL, nose, tiltRad);
+  const nostRS = rotatePoint(nostR, nose, tiltRad);
+  const cheekLS = rotatePoint(cheekL, nose, tiltRad);
+  const cheekRS = rotatePoint(cheekR, nose, tiltRad);
+  const eyeLTS = rotatePoint(eyeLT, nose, tiltRad);
+  const eyeLBS = rotatePoint(eyeLB, nose, tiltRad);
+  const eyeRTS = rotatePoint(eyeRT, nose, tiltRad);
+  const eyeRBS = rotatePoint(eyeRB, nose, tiltRad);
+
+  const eyeOpenL = Math.abs(eyeLBS.y - eyeLTS.y);
+  const eyeOpenR = Math.abs(eyeRBS.y - eyeRTS.y);
   const eyeOpenDiff = Math.abs(eyeOpenL - eyeOpenR);
   // 目の開き左右差（正規化・符号付き：正=左目が大きい）。常に最新値を保存しておき、真顔スナップショット時の基準値として使う
   const eyeOpenDiffNorm = ((eyeOpenL - eyeOpenR) / eyeDist) * 100;
   lastEyeOpenDiffNorm = eyeOpenDiffNorm;
 
-  const browDiff = Math.abs(browL.y - browR.y);
-  const cornerDiff = Math.abs(mLRel.y - mRRel.y);
-  const nostrilDiff = Math.abs(nostL.y - nostR.y);
-  const cheekDiff = Math.abs(cheekL.y - cheekR.y);
+  const browDiff = Math.abs(browLS.y - browRS.y);
+  const cornerDiff = Math.abs((mLS.y - nose.y) - (mRS.y - nose.y));
+  const nostrilDiff = Math.abs(nostLS.y - nostRS.y);
+  const cheekDiff = Math.abs(cheekLS.y - cheekRS.y);
   const jawContourDiff = Math.abs(jawShiftPx);
 
   // ===== 発音チェック用指標（顕の大きさに依存しないよう eyeDist で正規化）=====
   // 鼻の傾き：小鼻左右を結ぶ線の角度（度）
-  const noseAngle = Math.atan2(nostR.y - nostL.y, nostR.x - nostL.x) * 180 / Math.PI;
+  const noseAngle = Math.atan2(nostRS.y - nostLS.y, nostRS.x - nostLS.x) * 180 / Math.PI;
   // 口角の高さ差（符号付き：正=右口角が高い、負=左口角が高い）
-  const cornerDiffNorm = ((mR.y - mL.y) / eyeDist) * 100;
+  const cornerDiffNorm = ((mRS.y - mLS.y) / eyeDist) * 100;
   // 頬の張り出し差（鼻中心からの横方向距離の左右差、符号付き：正=左頬の方が張り出している）
-  const cheekWidthDiffNorm = ((Math.abs(cheekL.x - nose.x) - Math.abs(cheekR.x - nose.x)) / eyeDist) * 100;
+  const cheekWidthDiffNorm = ((Math.abs(cheekLS.x - nose.x) - Math.abs(cheekRS.x - nose.x)) / eyeDist) * 100;
 
   // 発音チェック中はフレームごとに記録
   if (vowelRecording) {
