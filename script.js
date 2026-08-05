@@ -344,9 +344,16 @@ function onResults(results) {
         // （額・あごの2点だけを基準にすると、下向きに構えたときに丸ごと下にずれ、額が切れる／あごより下まで
         // 　伸びすぎる、といった現象が起きやすいため）
         const EYE_POSITION_RATIO = 0.38; // 丸の高さのうち、上から何割の位置に目のラインを置くか
-        const stableCy = avgEyeLineY + avgRy * (1 - 2 * EYE_POSITION_RATIO);
+
+        // 顔をカメラに近づけすぎた場合、丸が大きくなりすぎて下端が画面からはみ出し、
+        // あご周りの認識精度が落ちる問題への対策：丸の下端が、画面下から一定の余白を必ず残すよう上限を設ける
+        const MAX_GUIDE_BOTTOM_RATIO = 0.92; // 丸の下端の位置（画面の高さに対する割合）の上限
+        const maxRy = Math.max(20, (H * MAX_GUIDE_BOTTOM_RATIO - avgEyeLineY) / (2 * (1 - EYE_POSITION_RATIO)));
+        const cappedRy = Math.min(avgRy, maxRy);
+
+        const stableCy = avgEyeLineY + cappedRy * (1 - 2 * EYE_POSITION_RATIO);
         smoothGuide = {
-          cx: avg('cx'), cy: stableCy, rx: avg('rx'), ry: avgRy,
+          cx: avg('cx'), cy: stableCy, rx: avg('rx'), ry: cappedRy,
         };
         guideCalibrated = true;
       }
