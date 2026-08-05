@@ -721,6 +721,23 @@ function onResults(results) {
 
   ctx.restore();
 
+  // デバッグ用：計算した「鼻」「顎」の位置に、目立つ赤い印を常時表示する（原因調査のための一時的な処理）
+  ctx.save();
+  [
+    { pt: nose, label: '鼻(計算値)' },
+    { pt: jaw, label: '顎(計算値)' },
+  ].forEach(({ pt, label }) => {
+    ctx.fillStyle = 'red';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, pt.x, pt.y - 20);
+  });
+  ctx.restore();
+
   // ===== UI更新 =====
   // カメラオーバーレイ
   document.getElementById('ov-open').textContent = openPct + '%';
