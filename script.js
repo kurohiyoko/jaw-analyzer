@@ -28,6 +28,9 @@ let lastNeckTiltAngle = 0;
 let baselineNeckTiltAngle = 0;
 let checkInProgress = false; // ガイド中は常時案内を隠す（チェック側の案内に任せる）
 
+// デバッグ表示用（原因調査のための一時的な情報。用が済んだら削除する）
+let lastAiInputInfo = '(まだAIに映像を渡していません)';
+
 // 発音チェック（あ・い・う・え・お）用状態
 let vowelRecording = false;
 let afterVowelCheckCallback = null;
@@ -295,6 +298,20 @@ function onResults(results) {
   const browL = px(lm[LM.BROW_L]);
   const browR = px(lm[LM.BROW_R]);
   const nostL = px(lm[LM.NOSTRIL_L]);
+
+  // デバッグ表示の更新（原因調査のための一時的な処理）
+  {
+    const dbgEl = document.getElementById('debugInfo');
+    if (dbgEl) {
+      const rawNose = lm[LM.NOSE];
+      dbgEl.textContent =
+        `video実サイズ: ${video.videoWidth}x${video.videoHeight}\n` +
+        `画面表示サイズ: ${W}x${H}\n` +
+        `AI入力: ${lastAiInputInfo}\n` +
+        `鼻(AI生値 0-1): x=${rawNose.x.toFixed(3)}, y=${rawNose.y.toFixed(3)}\n` +
+        `鼻(画面座標px): x=${nose.x.toFixed(0)}, y=${nose.y.toFixed(0)}`;
+    }
+  }
   const nostR = px(lm[LM.NOSTRIL_R]);
   const cheekL = px(lm[LM.CHEEK_L]);
   const cheekR = px(lm[LM.CHEEK_R]);
@@ -1601,7 +1618,10 @@ document.getElementById('btnStart').addEventListener('click', async () => {
       const targetH = canvas.height;
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-      if (!vw || !vh || !targetW || !targetH) return video; // サイズが取れない場合はそのまま渡す
+      if (!vw || !vh || !targetW || !targetH) {
+        lastAiInputInfo = `映像サイズ未取得のため未加工のvideoをそのまま送信 (vw=${vw},vh=${vh},targetW=${targetW},targetH=${targetH})`;
+        return video; // サイズが取れない場合はそのまま渡す
+      }
 
       aiInputCanvas.width = targetW;
       aiInputCanvas.height = targetH;
@@ -1624,6 +1644,7 @@ document.getElementById('btnStart').addEventListener('click', async () => {
         sy = (vh - sh) / 2;
       }
       aiInputCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      lastAiInputInfo = `video実サイズ=${vw}x${vh} 表示サイズ=${targetW}x${targetH} 切取元(sx=${sx.toFixed(0)},sy=${sy.toFixed(0)},sw=${sw.toFixed(0)},sh=${sh.toFixed(0)})`;
       return aiInputCanvas;
     }
 
