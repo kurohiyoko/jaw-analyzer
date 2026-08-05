@@ -1665,6 +1665,16 @@ document.getElementById('btnStart').addEventListener('click', async () => {
       }
       aiInputCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
       lastAiInputInfo = `video実サイズ=${vw}x${vh} 表示サイズ=${targetW}x${targetH} 切取元(sx=${sx.toFixed(0)},sy=${sy.toFixed(0)},sw=${sw.toFixed(0)},sh=${sh.toFixed(0)})`;
+
+      // デバッグ用プレビューにも同じ画像を描画（AIに渡している実際の画像を目で確認するため）
+      const previewEl = document.getElementById('debugAiPreview');
+      if (previewEl) {
+        previewEl.width = targetW;
+        previewEl.height = targetH;
+        const previewCtx = previewEl.getContext('2d');
+        previewCtx.drawImage(aiInputCanvas, 0, 0);
+      }
+
       return aiInputCanvas;
     }
 
