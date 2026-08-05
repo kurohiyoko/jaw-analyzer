@@ -281,19 +281,8 @@ function onResults(results) {
 
   const lm = results.multiFaceLandmarks[0];
 
-  // 映像本来のサイズ（video.videoWidth/videoHeight）と、画面に実際に表示されているサイズ（W,H）の
-  // 比率が機種によって異なる場合があるため、そのズレを補正してから目・鼻・口などの位置を計算する
-  const vw = video.videoWidth || W;
-  const vh = video.videoHeight || H;
-  const dispScale = Math.max(W / vw, H / vh);
-  const dispOffsetX = (vw * dispScale - W) / 2;
-  const dispOffsetY = (vh * dispScale - H) / 2;
-
-  function px(l) {
-    const dispX = l.x * vw * dispScale - dispOffsetX;
-    const dispY = l.y * vh * dispScale - dispOffsetY;
-    return { x: W - dispX, y: dispY, z: l.z };
-  }
+  // 座標計算はシンプルな元の式に戻す（映像側はAIに渡す前に画面比率へ切り取り済みのため）
+  function px(l) { return { x: (1 - l.x) * W, y: l.y * H, z: l.z }; }
 
   const jaw = px(lm[LM.JAW]);
   const nose = px(lm[LM.NOSE]);
@@ -1601,8 +1590,45 @@ document.getElementById('btnStart').addEventListener('click', async () => {
     renderStreakBanner();
     renderCompareTab();
 
+    // 映像をAIに渡す前に、画面の表示比率（縦横比）に合わせて切り取るための作業用canvas
+    // （機種によってカメラ映像そのものの縦横比が違っても、渡す時点で画面比率にそろえておけば
+    // 　AIから返ってくる位置情報を、変換計算なしでそのまま画面座標として使える）
+    const aiInputCanvas = document.createElement('canvas');
+    const aiInputCtx = aiInputCanvas.getContext('2d');
+
+    function getScreenRatioFrame() {
+      const targetW = canvas.width;
+      const targetH = canvas.height;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh || !targetW || !targetH) return video; // サイズが取れない場合はそのまま渡す
+
+      aiInputCanvas.width = targetW;
+      aiInputCanvas.height = targetH;
+
+      // 画面表示（object-fit: cover）と同じ考え方で、切り取る範囲を計算する
+      const targetRatio = targetW / targetH;
+      const videoRatio = vw / vh;
+      let sx, sy, sw, sh;
+      if (videoRatio > targetRatio) {
+        // 映像の方が横長 → 左右を切り取る
+        sh = vh;
+        sw = vh * targetRatio;
+        sy = 0;
+        sx = (vw - sw) / 2;
+      } else {
+        // 映像の方が縦長 → 上下を切り取る
+        sw = vw;
+        sh = vw / targetRatio;
+        sx = 0;
+        sy = (vh - sh) / 2;
+      }
+      aiInputCtx.drawImage(video, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      return aiInputCanvas;
+    }
+
     const mpCam = new Camera(video, {
-      onFrame: async () => { await faceMesh.send({ image: video }); },
+      onFrame: async () => { await faceMesh.send({ image: getScreenRatioFrame() }); },
       width: 640, height: 480,
     });
     mpCam.start();
