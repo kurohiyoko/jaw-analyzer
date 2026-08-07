@@ -308,6 +308,19 @@ function onResults(results) {
   // 目の端の点（EYE_L/EYE_R）だけを使うと、目の中心より低い位置になりやすいため。
   const eyeLineY = (eyeLT.y + eyeLB.y + eyeRT.y + eyeRB.y) / 4;
 
+  // デバッグ表示（原因調査のための一時的な処理）
+  {
+    const dbgEl = document.getElementById('debugEyeLine');
+    if (dbgEl) {
+      dbgEl.textContent =
+        `eyeLT.y=${eyeLT.y.toFixed(0)} eyeLB.y=${eyeLB.y.toFixed(0)}\n` +
+        `eyeRT.y=${eyeRT.y.toFixed(0)} eyeRB.y=${eyeRB.y.toFixed(0)}\n` +
+        `eyeLineY=${eyeLineY.toFixed(0)}\n` +
+        `nose.y=${nose.y.toFixed(0)}\n` +
+        `guideCy=${guideCy.toFixed(0)} H=${H.toFixed(0)}`;
+    }
+  }
+
   // === 顔ガイド：目・鼻の位置をその都度リアルタイムに追いかけて表示（オートフォーカス方式） ===
   // 口の位置は内部の判定には使うが、画面上のライン表示はしない（先生のご指示により）
   // 他の骨格モード表示を廃止したぶん、このT字ラインが唯一の位置合わせの目印になるため、
