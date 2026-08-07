@@ -298,23 +298,6 @@ function onResults(results) {
   const browL = px(lm[LM.BROW_L]);
   const browR = px(lm[LM.BROW_R]);
   const nostL = px(lm[LM.NOSTRIL_L]);
-
-  // デバッグ表示の更新（原因調査のための一時的な処理）
-  {
-    const dbgEl = document.getElementById('debugInfo');
-    if (dbgEl) {
-      const rawNose = lm[LM.NOSE];
-      const rawJaw = lm[LM.JAW];
-      dbgEl.textContent =
-        `video実サイズ: ${video.videoWidth}x${video.videoHeight}\n` +
-        `画面表示サイズ: ${W}x${H}\n` +
-        `AI入力: ${lastAiInputInfo}\n` +
-        `鼻(AI生値 0-1): x=${rawNose.x.toFixed(3)}, y=${rawNose.y.toFixed(3)}\n` +
-        `鼻(画面座標px): x=${nose.x.toFixed(0)}, y=${nose.y.toFixed(0)}\n` +
-        `顎(AI生値 0-1): x=${rawJaw.x.toFixed(3)}, y=${rawJaw.y.toFixed(3)}\n` +
-        `顎(画面座標px): x=${jaw.x.toFixed(0)}, y=${jaw.y.toFixed(0)}`;
-    }
-  }
   const nostR = px(lm[LM.NOSTRIL_R]);
   const cheekL = px(lm[LM.CHEEK_L]);
   const cheekR = px(lm[LM.CHEEK_R]);
