@@ -20,6 +20,10 @@ let lastNeckTiltAngle = 0;
 let baselineNeckTiltAngle = 0;
 let checkInProgress = false; // ガイド中は常時案内を隠す（チェック側の案内に任せる）
 
+// 自動撮影（T字ラインに顔を合わせた状態が一定時間続いたら自動でチェックを開始する）
+let alignedStartTime = null;
+const AUTO_CAPTURE_HOLD_MS = 1200; // この時間、位置が合った状態が続いたら自動開始
+
 // デバッグ表示用（原因調査のための一時的な情報。用が済んだら削除する）
 let lastAiInputInfo = '(まだAIに映像を渡していません)';
 
@@ -300,12 +304,15 @@ function onResults(results) {
   const eyeRT = px(lm[LM.EYE_R_TOP]);
   const eyeRB = px(lm[LM.EYE_R_BOT]);
 
+  // 目の高さの基準は、まぶたの上下点（EYE_L_TOP/BOT・EYE_R_TOP/BOT）の平均を使う。
+  // 目の端の点（EYE_L/EYE_R）だけを使うと、目の中心より低い位置になりやすいため。
+  const eyeLineY = (eyeLT.y + eyeLB.y + eyeRT.y + eyeRB.y) / 4;
+
   // === 顔ガイド：目・鼻の位置をその都度リアルタイムに追いかけて表示（オートフォーカス方式） ===
   // 口の位置は内部の判定には使うが、画面上のライン表示はしない（先生のご指示により）
   // 他の骨格モード表示を廃止したぶん、このT字ラインが唯一の位置合わせの目印になるため、
   // 白フチ＋明るい黄色の太めの線にして、どんな背景・肌色でもはっきり見えるようにしている
   {
-    const eyeLineY = (eyeL.y + eyeR.y) / 2;
 
     const drawTLine = () => {
       ctx.beginPath();
@@ -424,13 +431,44 @@ function onResults(results) {
 
   // 顔向きガイド更新（顔の上ではなく画面上部の固定バナーに表示）
   const faceAngleY = Math.atan2(jaw.y - forehead.y, jaw.x - forehead.x) * 180 / Math.PI;
+  const faceAngleOk = Math.abs(faceAngleY - 90) <= 15;
   if (Math.abs(deviceTilt || 0) < 5) {
-    if (Math.abs(faceAngleY - 90) > 15) {
+    if (!faceAngleOk) {
       guideMsgEl.textContent = faceAngleY < 90 ? '▼ 少し下を向いてください' : '▲ 少し上を向いてください';
       guideMsgEl.style.color = 'var(--warn)';
       guideMsgEl.style.display = 'block';
     } else {
       guideMsgEl.style.display = 'none';
+    }
+  }
+
+  // === 自動撮影：T字ラインに顔がおおむね合った状態が一定時間続いたら、自動でチェックを開始する ===
+  // 撮影画面が表示されている時だけ判定する（結果画面を見ている間に誤って再始動しないようにするため）
+  {
+    const cameraWrapEl = document.getElementById('cameraWrap');
+    const btnStartCheckEl = document.getElementById('btnStartCheck');
+    const isCaptureScreenVisible = cameraWrapEl && cameraWrapEl.style.display !== 'none';
+    const canAutoStart = isCaptureScreenVisible && !checkInProgress && running && btnStartCheckEl && !btnStartCheckEl.disabled;
+
+    const ALIGN_TOLERANCE = frameR * 0.28;
+    const isAligned = tiltAbs < 5
+      && faceAngleOk
+      && Math.abs(nose.x - guideCx) < ALIGN_TOLERANCE
+      && Math.abs(eyeLineY - guideCy) < ALIGN_TOLERANCE;
+
+    if (canAutoStart && isAligned) {
+      if (alignedStartTime === null) alignedStartTime = performance.now();
+      const heldMs = performance.now() - alignedStartTime;
+      if (heldMs >= AUTO_CAPTURE_HOLD_MS) {
+        alignedStartTime = null;
+        btnStartCheckEl.click();
+      } else {
+        guideMsgEl.textContent = '✅ 位置OK！このままキープしてください…';
+        guideMsgEl.style.display = 'block';
+        guideMsgEl.style.color = 'var(--accent2)';
+      }
+    } else {
+      alignedStartTime = null;
     }
   }
 
