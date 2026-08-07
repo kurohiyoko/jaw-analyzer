@@ -1,7 +1,7 @@
 // ===== 状態管理 =====
 let running = false;
 let analysisOn = true;
-let mode = 'skeleton';
+let mode = 'none';
 let jawTrail = [];
 let jerkHistory = [];
 let lastJawX = null;
@@ -302,25 +302,37 @@ function onResults(results) {
 
   // === 顔ガイド：目・鼻の位置をその都度リアルタイムに追いかけて表示（オートフォーカス方式） ===
   // 口の位置は内部の判定には使うが、画面上のライン表示はしない（先生のご指示により）
+  // 他の骨格モード表示を廃止したぶん、このT字ラインが唯一の位置合わせの目印になるため、
+  // 白フチ＋明るい黄色の太めの線にして、どんな背景・肌色でもはっきり見えるようにしている
   {
-    const trackColor = 'rgba(120,150,150,0.9)';
     const eyeLineY = (eyeL.y + eyeR.y) / 2;
 
+    const drawTLine = () => {
+      ctx.beginPath();
+      ctx.moveTo(guideCx - frameR * 0.7, eyeLineY);
+      ctx.lineTo(guideCx + frameR * 0.7, eyeLineY);
+      ctx.moveTo(nose.x, eyeLineY - 14);
+      ctx.lineTo(nose.x, eyeLineY + frameR * 0.9);
+      ctx.stroke();
+    };
+
     ctx.save();
-    ctx.strokeStyle = trackColor;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 3]);
-    // 目のライン（横）
-    ctx.beginPath();
-    ctx.moveTo(guideCx - frameR * 0.7, eyeLineY);
-    ctx.lineTo(guideCx + frameR * 0.7, eyeLineY);
-    ctx.stroke();
-    // 鼻のライン（縦）
-    ctx.beginPath();
-    ctx.moveTo(nose.x, eyeLineY - 14);
-    ctx.lineTo(nose.x, eyeLineY + frameR * 0.9);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    // 白フチ（太め・下地）
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 5;
+    drawTLine();
+    // 明るい黄色（本体）
+    ctx.strokeStyle = '#FFDD00';
+    ctx.lineWidth = 2.5;
+    drawTLine();
+    // 目・鼻の交点を小さな点で強調
+    [{ x: guideCx - frameR * 0.7, y: eyeLineY }, { x: guideCx + frameR * 0.7, y: eyeLineY }, { x: nose.x, y: eyeLineY }].forEach(pt => {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFDD00';
+      ctx.fill();
+    });
     ctx.restore();
   }
 
@@ -445,137 +457,6 @@ function onResults(results) {
 
   // ===== Canvas描画 =====
   ctx.save();
-
-  if (mode === 'skeleton' || mode === 'combined') {
-    // ③ リアルタイム：録画中は軌跡、非録画時は現在位置の点のみ
-    if (recording && jawTrail.length > 1) {
-      for (let i = 1; i < jawTrail.length; i++) {
-        const a = i / jawTrail.length;
-        ctx.strokeStyle = `rgba(99,179,237,${a * 0.9})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(jawTrail[i-1].x, jawTrail[i-1].y);
-        ctx.lineTo(jawTrail[i].x, jawTrail[i].y);
-        ctx.stroke();
-      }
-    } else if (!recording) {
-      // 非録画時：現在の顎位置のみ点表示
-      ctx.fillStyle = 'rgba(99,179,237,0.7)';
-      ctx.beginPath();
-      ctx.arc(jawSmooth.x, jawSmooth.y, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // 中心軸
-    ctx.strokeStyle = 'rgba(246,173,85,0.8)';
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([6,5]);
-    ctx.beginPath();
-    ctx.moveTo(nose.x, nose.y);
-    ctx.lineTo(jaw.x, jaw.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 顎先
-    ctx.fillStyle = totalScore >= 80 ? '#68d391' : totalScore >= 60 ? '#f6ad55' : '#fc8181';
-    ctx.beginPath();
-    ctx.arc(jaw.x, jaw.y, 5, 0, Math.PI*2);
-    ctx.fill();
-
-    // 口角
-    ctx.strokeStyle = 'rgba(104,211,145,0.85)';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(mL.x, mL.y);
-    ctx.lineTo(mR.x, mR.y);
-    ctx.stroke();
-
-    // 目ライン
-    ctx.strokeStyle = 'rgba(252,129,129,0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(eyeL.x, eyeL.y);
-    ctx.lineTo(eyeR.x, eyeR.y);
-    ctx.stroke();
-
-    // 眉ライン
-    ctx.strokeStyle = 'rgba(246,173,85,0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(browL.x, browL.y);
-    ctx.lineTo(browR.x, browR.y);
-    ctx.stroke();
-
-    // 小鼻
-    [nostL, nostR].forEach(pt => {
-      ctx.fillStyle = 'rgba(246,173,85,0.95)';
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 5, 0, Math.PI*2);
-      ctx.fill();
-    });
-  }
-
-  if (mode === 'muscle' || mode === 'combined') {
-    // ④ 筋肉連動表示
-    const addHeat = (pt, radius, intensity, color) => {
-      const g = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, radius);
-      g.addColorStop(0, color.replace('A', Math.min(0.7, intensity).toFixed(2)));
-      g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-    };
-
-    // 開口量に連動（0〜1正規化）
-    const openRatio = Math.min(1, openPct / 60);
-    // 横ズレ（eyeDist比）
-    const shiftRatio = Math.min(1, Math.abs(jawShiftPx) / (eyeDist * 0.3));
-    // 左右どちらにズレているか
-    const shiftDir = jawShiftPx > 0 ? 1 : -1; // +1=右ズレ, -1=左ズレ
-
-    // 咬筋（両頬）：開口大で活性
-    const massBias = openRatio * 0.55;
-    addHeat(cheekR, eyeDist * 0.55, massBias, 'rgba(252,129,129,A)');
-    addHeat(cheekL, eyeDist * 0.55, massBias, 'rgba(252,129,129,A)');
-
-    // 側頭筋（こめかみ）：開口大で活性
-    const tempR = { x: eyeR.x - eyeDist * 0.3, y: eyeR.y - eyeDist * 0.5 };
-    const tempL = { x: eyeL.x + eyeDist * 0.3, y: eyeL.y - eyeDist * 0.5 };
-    const tempBias = openRatio * 0.5;
-    addHeat(tempR, eyeDist * 0.6, tempBias, 'rgba(246,173,85,A)');
-    addHeat(tempL, eyeDist * 0.6, tempBias, 'rgba(246,173,85,A)');
-
-    // 外側翼突筋（横ズレ方向の反対側が収縮）
-    // ズレ先と逆側の口角奥あたりに表示
-    const pteroExtR = { x: mR.x - eyeDist * 0.1, y: mR.y + eyeDist * 0.15 };
-    const pteroExtL = { x: mL.x + eyeDist * 0.1, y: mL.y + eyeDist * 0.15 };
-    if (shiftDir > 0) {
-      // 右ズレ → 左側の外側翼突筋が収縮
-      addHeat(pteroExtL, eyeDist * 0.35, shiftRatio * 0.6, 'rgba(99,179,237,A)');
-    } else {
-      addHeat(pteroExtR, eyeDist * 0.35, shiftRatio * 0.6, 'rgba(99,179,237,A)');
-    }
-
-    // 内側翼突筋（顎の内側・開口小＋ズレ時）
-    const closeRatio = Math.max(0, 1 - openRatio);
-    const pteroPt = { x: jawSmooth.x, y: jawSmooth.y - eyeDist * 0.1 };
-    addHeat(pteroPt, eyeDist * 0.3, closeRatio * shiftRatio * 0.5, 'rgba(104,211,145,A)');
-
-    // 凡例（右上に固定表示）
-    const legend = [
-      { color: 'rgba(252,129,129,0.8)', label: '咬筋' },
-      { color: 'rgba(246,173,85,0.8)',  label: '側頭筋' },
-      { color: 'rgba(99,179,237,0.8)',  label: '外側翼突筋' },
-      { color: 'rgba(104,211,145,0.8)', label: '内側翼突筋' },
-    ];
-    legend.forEach((item, i) => {
-      const lx = W - 100, ly = 12 + i * 18;
-      ctx.fillStyle = item.color;
-      ctx.fillRect(lx, ly, 12, 12);
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(item.label, lx + 16, ly + 10);
-    });
-  }
 
   if (mode === 'avatar') {
     // ===== マンガ風シンプルアバター表示（大ざっぱな左右差・動きの役）=====
@@ -1643,13 +1524,11 @@ document.getElementById('btnStart').addEventListener('click', async () => {
   }
 });
 
-// ===== モード切替 =====
+// ===== モード切替（アバター表示のON/OFF） =====
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    mode = btn.dataset.mode;
-    jawTrail = [];
+    const isActive = btn.classList.toggle('active');
+    mode = isActive ? btn.dataset.mode : 'none';
   });
 });
 
