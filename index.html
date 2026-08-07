@@ -232,23 +232,6 @@ body.large-mode .pc-suggest {
   display: none;
 }
 
-/* デバッグ表示（原因調査のための一時的な数値表示。用が済んだら削除する） */
-.debug-info {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  z-index: 999;
-  background: rgba(0,0,0,0.75);
-  color: #7CFC7C;
-  font-size: 10px;
-  font-family: monospace;
-  padding: 4px 6px;
-  white-space: pre-line;
-  line-height: 1.5;
-  pointer-events: none;
-  border-radius: 4px;
-}
-
 /* 顔位置ガイド枠 — JSで描画するため非表示 */
 .face-guide-top-msg {
   position: absolute;
@@ -906,8 +889,7 @@ canvas.mini-c { width: 100%; height: 160px; border-radius: 4px; display: block; 
 
     <!-- オーバーレイ -->
     <div class="cam-overlay" id="camOverlay">
-      <!-- デバッグ表示（原因調査用・一時的） -->
-      <div class="debug-info" id="debugInfo"></div>
+      <!-- デバッグ表示（AIに渡している画像の確認用・一時的） -->
       <div style="position:absolute; top:2px; right:2px; z-index:999; pointer-events:none;">
         <div style="font-size:9px; color:#7CFC7C; background:rgba(0,0,0,0.75); padding:2px 4px; text-align:center;">AIに渡した画像</div>
         <canvas id="debugAiPreview" style="width:90px; height:150px; border:2px solid #7CFC7C; display:block;"></canvas>
